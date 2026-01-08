@@ -1,0 +1,33 @@
+# Configuration pour gqlgen (générateur de code GraphQL pour Go)
+
+# Où se trouve le schéma GraphQL
+schema:
+  - schema.graphql
+
+# Où générer le code
+exec:
+  filename: graph/generated/generated.go
+  package: generated
+
+# Où générer les modèles
+model:
+  filename: graph/model/models_gen.go
+  package: model
+
+# Où créer le resolver
+resolver:
+  layout: follow-schema
+  dir: graph
+  package: graph
+  filename_template: "{name}.resolvers.go"
+
+# Mapping des types GraphQL vers des types Go
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32

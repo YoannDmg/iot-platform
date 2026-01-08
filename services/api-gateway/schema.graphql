@@ -1,0 +1,122 @@
+# GraphQL Schema pour l'API Gateway
+
+# ============================================
+# TYPES
+# ============================================
+
+# Représente un appareil IoT
+type Device {
+  id: ID!
+  name: String!
+  type: String!
+  status: DeviceStatus!
+  createdAt: Int!
+  lastSeen: Int!
+  metadata: [MetadataEntry!]!
+}
+
+# Entrée clé-valeur pour les métadonnées
+type MetadataEntry {
+  key: String!
+  value: String!
+}
+
+# Statut d'un device
+enum DeviceStatus {
+  UNKNOWN
+  ONLINE
+  OFFLINE
+  ERROR
+  MAINTENANCE
+}
+
+# ============================================
+# INPUTS (pour les mutations)
+# ============================================
+
+# Input pour créer un device
+input CreateDeviceInput {
+  name: String!
+  type: String!
+  metadata: [MetadataEntryInput!]
+}
+
+# Input pour une entrée de métadonnée
+input MetadataEntryInput {
+  key: String!
+  value: String!
+}
+
+# Input pour mettre à jour un device
+input UpdateDeviceInput {
+  id: ID!
+  name: String
+  status: DeviceStatus
+  metadata: [MetadataEntryInput!]
+}
+
+# ============================================
+# QUERIES (Lecture)
+# ============================================
+
+type Query {
+  # Récupérer un device par son ID
+  device(id: ID!): Device
+
+  # Lister tous les devices avec pagination
+  devices(
+    page: Int = 1
+    pageSize: Int = 20
+    type: String
+    status: DeviceStatus
+  ): DeviceConnection!
+
+  # Statistiques globales
+  stats: Stats!
+}
+
+# Connexion pour la pagination
+type DeviceConnection {
+  devices: [Device!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+}
+
+# Statistiques
+type Stats {
+  totalDevices: Int!
+  onlineDevices: Int!
+  offlineDevices: Int!
+  errorDevices: Int!
+}
+
+# ============================================
+# MUTATIONS (Écriture)
+# ============================================
+
+type Mutation {
+  # Créer un nouveau device
+  createDevice(input: CreateDeviceInput!): Device!
+
+  # Mettre à jour un device
+  updateDevice(input: UpdateDeviceInput!): Device!
+
+  # Supprimer un device
+  deleteDevice(id: ID!): DeleteResult!
+}
+
+# Résultat d'une suppression
+type DeleteResult {
+  success: Boolean!
+  message: String!
+}
+
+# ============================================
+# SUBSCRIPTIONS (Temps réel)
+# ============================================
+
+type Subscription {
+  # Recevoir les updates des devices en temps réel
+  deviceUpdated: Device!
+}

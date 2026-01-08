@@ -1,0 +1,123 @@
+// Protocol Buffers version 3
+syntax = "proto3";
+
+// Package pour organiser le code généré
+package device;
+
+// Options de génération pour Go
+option go_package = "github.com/yourusername/iot-platform/shared/proto/device";
+
+// ============================================
+// MESSAGES (= Structures de données)
+// ============================================
+
+// Représente un appareil IoT
+message Device {
+  string id = 1;              // Identifiant unique
+  string name = 2;            // Nom du device (ex: "Capteur Température Salon")
+  string type = 3;            // Type (ex: "temperature_sensor", "motion_detector")
+  DeviceStatus status = 4;    // Statut du device
+  int64 created_at = 5;       // Timestamp de création (Unix timestamp)
+  int64 last_seen = 6;        // Dernière fois vu en ligne
+  map<string, string> metadata = 7; // Métadonnées additionnelles (clé-valeur)
+}
+
+// Enum pour le statut du device
+enum DeviceStatus {
+  UNKNOWN = 0;      // Statut inconnu
+  ONLINE = 1;       // En ligne
+  OFFLINE = 2;      // Hors ligne
+  ERROR = 3;        // En erreur
+  MAINTENANCE = 4;  // En maintenance
+}
+
+// Requête pour créer un device
+message CreateDeviceRequest {
+  string name = 1;
+  string type = 2;
+  map<string, string> metadata = 3;
+}
+
+// Réponse après création
+message CreateDeviceResponse {
+  Device device = 1;
+}
+
+// Requête pour récupérer un device par ID
+message GetDeviceRequest {
+  string id = 1;
+}
+
+// Réponse avec un device
+message GetDeviceResponse {
+  Device device = 1;
+}
+
+// Requête pour lister les devices (avec pagination)
+message ListDevicesRequest {
+  int32 page = 1;       // Numéro de page (défaut: 1)
+  int32 page_size = 2;  // Taille de page (défaut: 20)
+  string type = 3;      // Filtrer par type (optionnel)
+  DeviceStatus status = 4; // Filtrer par statut (optionnel)
+}
+
+// Réponse avec une liste de devices
+message ListDevicesResponse {
+  repeated Device devices = 1; // "repeated" = tableau/liste
+  int32 total = 2;             // Nombre total de devices
+  int32 page = 3;              // Page actuelle
+  int32 page_size = 4;         // Taille de page
+}
+
+// Requête pour mettre à jour un device
+message UpdateDeviceRequest {
+  string id = 1;
+  string name = 2;
+  DeviceStatus status = 3;
+  map<string, string> metadata = 4;
+}
+
+// Réponse après mise à jour
+message UpdateDeviceResponse {
+  Device device = 1;
+}
+
+// Requête pour supprimer un device
+message DeleteDeviceRequest {
+  string id = 1;
+}
+
+// Réponse après suppression
+message DeleteDeviceResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Message vide (pour les requêtes sans paramètres)
+message Empty {}
+
+// ============================================
+// SERVICE (= Les fonctions disponibles)
+// ============================================
+
+// Service de gestion des devices
+service DeviceService {
+  // Créer un nouveau device
+  rpc CreateDevice(CreateDeviceRequest) returns (CreateDeviceResponse);
+
+  // Récupérer un device par son ID
+  rpc GetDevice(GetDeviceRequest) returns (GetDeviceResponse);
+
+  // Lister tous les devices (avec pagination)
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+
+  // Mettre à jour un device
+  rpc UpdateDevice(UpdateDeviceRequest) returns (UpdateDeviceResponse);
+
+  // Supprimer un device
+  rpc DeleteDevice(DeleteDeviceRequest) returns (DeleteDeviceResponse);
+
+  // Stream de mise à jour en temps réel (pour le monitoring)
+  // Le serveur envoie des updates en continu
+  rpc WatchDevices(Empty) returns (stream Device);
+}

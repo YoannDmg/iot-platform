@@ -99,9 +99,9 @@ make device-manager
 
 Expected output:
 ```
-🚀 Device Manager Service
-📡 Protocole: gRPC (HTTP/2)
-🔌 Port: 8081
+Device Manager Service
+Protocole: gRPC (HTTP/2)
+Port: 8081
 ✅ Serveur démarré
 ```
 

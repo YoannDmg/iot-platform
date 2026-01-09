@@ -110,15 +110,15 @@ restart: ## Redémarre l'infrastructure
 #==================================================================================
 
 device-manager: ## Lance le Device Manager
-	@echo "🚀 Démarrage du Device Manager..."
+	@echo "Démarrage du Device Manager..."
 	@cd services/device-manager && go run main.go
 
 api-gateway: ## Lance l'API Gateway
-	@echo "🚀 Démarrage de l'API Gateway..."
+	@echo "Démarrage de l'API Gateway..."
 	@cd services/api-gateway && go run main.go
 
 dev: up ## Lance TOUT: infra + services (en parallèle)
-	@echo "🚀 Démarrage complet de la plateforme..."
+	@echo "Démarrage complet de la plateforme..."
 	@echo ""
 	@echo "⏳ Attente de l'infrastructure Docker..."
 	@sleep 5

@@ -3,7 +3,7 @@
 > Document évolutif - Notes de cours sur la construction d'une plateforme IoT microservices
 
 **Dernière mise à jour:** 2026-01-09
-**Commit:** `cae20ba`
+**Commit:** `cae20ba` → API Gateway implémentée
 
 ---
 
@@ -13,10 +13,11 @@
 2. [Protocol Buffers et gRPC](#2-protocol-buffers-et-grpc)
 3. [GraphQL](#3-graphql)
 4. [Génération de code](#4-génération-de-code)
-5. [Synchronisation et thread-safety](#5-synchronisation-et-thread-safety)
-6. [Docker et orchestration](#6-docker-et-orchestration)
-7. [Patterns et bonnes pratiques](#7-patterns-et-bonnes-pratiques)
-8. [Commandes utiles](#8-commandes-utiles)
+5. [API Gateway - Implémentation complète](#5-api-gateway---implémentation-complète)
+6. [Synchronisation et thread-safety](#6-synchronisation-et-thread-safety)
+7. [Docker et orchestration](#7-docker-et-orchestration)
+8. [Patterns et bonnes pratiques](#8-patterns-et-bonnes-pratiques)
+9. [Commandes utiles](#9-commandes-utiles)
 
 ---
 
@@ -542,9 +543,475 @@ generate: generate-proto generate-graphql
 
 ---
 
-## 5. Synchronisation et thread-safety
+## 5. API Gateway - Implémentation complète
 
-### 5.1 Le problème
+### 5.1 Architecture de l'API Gateway
+
+L'API Gateway est le **point d'entrée public** de notre plateforme. Il expose une API GraphQL et communique avec les services internes via gRPC.
+
+```
+Client HTTP/GraphQL
+        ↓
+┌───────────────────┐
+│   API Gateway     │
+│   (Port 8080)     │
+│                   │
+│  ┌─────────────┐  │
+│  │   GraphQL   │  │  ← Serveur GraphQL (gqlgen)
+│  │   Server    │  │
+│  └──────┬──────┘  │
+│         │         │
+│  ┌──────▼──────┐  │
+│  │  Resolvers  │  │  ← Implémentations des queries/mutations
+│  └──────┬──────┘  │
+│         │         │
+│  ┌──────▼──────┐  │
+│  │ gRPC Client │  │  ← Connexion au Device Manager
+│  └──────┬──────┘  │
+└─────────┼─────────┘
+          │ gRPC
+    ┌─────▼─────────┐
+    │Device Manager │
+    │  (Port 8081)  │
+    └───────────────┘
+```
+
+### 5.2 Structure des fichiers
+
+```
+services/api-gateway/
+├── main.go                      # Point d'entrée
+├── graph/
+│   ├── schema.graphql           # Schéma GraphQL (source de vérité)
+│   ├── schema.resolvers.go      # Stubs générés (appelle les *Impl)
+│   ├── resolvers_impl.go        # Implémentations réelles
+│   ├── resolver.go              # Structure Resolver avec dépendances
+│   ├── generated/
+│   │   └── generated.go         # Serveur GraphQL généré
+│   └── model/
+│       └── models_gen.go        # Types GraphQL générés
+├── grpc/
+│   └── client.go                # Client gRPC wrapper
+├── gqlgen.yml                   # Configuration gqlgen
+└── go.mod
+```
+
+### 5.3 Le client gRPC wrapper
+
+**Problème:** On ne veut pas créer/fermer une connexion gRPC à chaque requête GraphQL (trop lent).
+
+**Solution:** Un wrapper qui maintient une connexion persistante.
+
+```go
+// services/api-gateway/grpc/client.go
+
+package grpc
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+    pb "github.com/yourusername/iot-platform/shared/proto"
+)
+
+type DeviceClient struct {
+    conn   *grpc.ClientConn           // Connexion persistante
+    client pb.DeviceServiceClient     // Client gRPC
+}
+
+func NewDeviceClient(address string) (*DeviceClient, error) {
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    // Connexion avec timeout
+    conn, err := grpc.DialContext(
+        ctx,
+        address,
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+        grpc.WithBlock(),  // Attend la connexion
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect: %w", err)
+    }
+
+    log.Printf("✅ Connected to Device Manager at %s", address)
+
+    return &DeviceClient{
+        conn:   conn,
+        client: pb.NewDeviceServiceClient(conn),
+    }, nil
+}
+
+func (c *DeviceClient) Close() error {
+    if c.conn != nil {
+        return c.conn.Close()
+    }
+    return nil
+}
+
+func (c *DeviceClient) GetClient() pb.DeviceServiceClient {
+    return c.client
+}
+```
+
+**Points clés:**
+- `WithBlock()`: Attend que la connexion soit établie (fail fast)
+- `WithTimeout`: Évite de bloquer indéfiniment
+- `insecure.NewCredentials()`: Pas de TLS (développement uniquement)
+
+### 5.4 Injection de dépendances dans les resolvers
+
+```go
+// services/api-gateway/graph/resolver.go
+
+package graph
+
+import (
+    pb "github.com/yourusername/iot-platform/shared/proto"
+)
+
+// Resolver contient les dépendances pour tous les resolvers
+type Resolver struct {
+    DeviceClient pb.DeviceServiceClient
+}
+```
+
+**Pourquoi cette structure ?**
+- Le serveur GraphQL crée UNE instance de `Resolver`
+- Tous les resolvers partagent le même client gRPC
+- Facilite les tests (on peut injecter un mock)
+
+### 5.5 Conversion de types: Protobuf ↔ GraphQL
+
+**Problème:** Les types Protobuf et GraphQL ne sont pas compatibles directement.
+
+**Exemple concret - Metadata:**
+
+Protobuf (device.proto):
+```protobuf
+message Device {
+    // ...
+    map<string, string> metadata = 7;  // Map simple
+}
+```
+
+GraphQL (schema.graphql):
+```graphql
+type Device {
+    metadata: [MetadataEntry!]!  # Array de structures
+}
+
+type MetadataEntry {
+    key: String!
+    value: String!
+}
+```
+
+**Fonctions de conversion:**
+
+```go
+// services/api-gateway/graph/resolvers_impl.go
+
+// Protobuf → GraphQL
+func protoToGraphQLDevice(d *pb.Device) *model.Device {
+    if d == nil {
+        return nil
+    }
+
+    // Convertir map → slice
+    metadata := make([]*model.MetadataEntry, 0, len(d.Metadata))
+    for k, v := range d.Metadata {
+        metadata = append(metadata, &model.MetadataEntry{
+            Key:   k,
+            Value: v,
+        })
+    }
+
+    return &model.Device{
+        ID:        d.Id,
+        Name:      d.Name,
+        Type:      d.Type,
+        Status:    protoToGraphQLStatus(d.Status),
+        CreatedAt: int(d.CreatedAt),
+        LastSeen:  int(d.LastSeen),
+        Metadata:  metadata,
+    }
+}
+
+// GraphQL → Protobuf
+func graphQLToProtoMetadata(input []*model.MetadataEntryInput) map[string]string {
+    metadata := make(map[string]string)
+    if input != nil {
+        for _, kv := range input {
+            metadata[kv.Key] = kv.Value
+        }
+    }
+    return metadata
+}
+```
+
+### 5.6 Implémentation d'un resolver complet
+
+**Exemple: CreateDevice**
+
+```go
+// services/api-gateway/graph/resolvers_impl.go
+
+func (r *Resolver) CreateDeviceImpl(
+    ctx context.Context,
+    input model.CreateDeviceInput,
+) (*model.Device, error) {
+    // 1. Conversion GraphQL input → Protobuf request
+    req := &pb.CreateDeviceRequest{
+        Name:     input.Name,
+        Type:     input.Type,
+        Metadata: graphQLToProtoMetadata(input.Metadata),
+    }
+
+    // 2. Appel gRPC au Device Manager
+    resp, err := r.DeviceClient.CreateDevice(ctx, req)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create device: %w", err)
+    }
+
+    // 3. Conversion Protobuf response → GraphQL type
+    return protoToGraphQLDevice(resp.Device), nil
+}
+```
+
+**Flux complet:**
+```
+1. Client GraphQL
+   mutation { createDevice(input: {...}) { id name } }
+
+2. GraphQL Server (généré)
+   Parse la requête, valide le schéma
+
+3. Resolver stub (schema.resolvers.go)
+   func (r *mutationResolver) CreateDevice(...) {
+       return r.CreateDeviceImpl(ctx, input)  // Délègue
+   }
+
+4. Implémentation (resolvers_impl.go)
+   - Convertit GraphQL → Protobuf
+   - Appelle Device Manager via gRPC
+   - Convertit Protobuf → GraphQL
+
+5. Device Manager
+   Crée le device, retourne Protobuf
+
+6. Client reçoit JSON
+   { "data": { "createDevice": { "id": "...", "name": "..." } } }
+```
+
+### 5.7 Initialisation dans main.go
+
+```go
+// services/api-gateway/main.go
+
+func main() {
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+
+    deviceManagerAddr := os.Getenv("DEVICE_MANAGER_ADDR")
+    if deviceManagerAddr == "" {
+        deviceManagerAddr = "localhost:8081"
+    }
+
+    // 1. Connexion au Device Manager
+    deviceClient, err := grpcClient.NewDeviceClient(deviceManagerAddr)
+    if err != nil {
+        log.Fatalf("❌ Failed to connect to Device Manager: %v", err)
+    }
+    defer deviceClient.Close()
+
+    // 2. Création du serveur GraphQL avec injection du client
+    srv := handler.NewDefaultServer(
+        generated.NewExecutableSchema(
+            generated.Config{
+                Resolvers: &graph.Resolver{
+                    DeviceClient: deviceClient.GetClient(),
+                },
+            },
+        ),
+    )
+
+    // 3. Configuration des routes
+    http.Handle("/", playground.Handler("GraphQL Playground", "/query"))
+    http.Handle("/query", srv)
+    http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+        w.Write([]byte("OK"))
+    })
+
+    // 4. Démarrage du serveur
+    log.Printf("🚀 API Gateway listening on :%s", port)
+    log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+```
+
+### 5.8 Gestion du go.mod avec replace directives
+
+**Problème:** Go essaie de télécharger `github.com/yourusername/iot-platform/shared/proto` depuis GitHub.
+
+**Solution:** Directive `replace` pour utiliser le chemin local.
+
+```go
+// services/api-gateway/go.mod
+
+module github.com/yourusername/iot-platform/services/api-gateway
+
+go 1.23
+
+require (
+    github.com/99designs/gqlgen v0.17.59
+    github.com/yourusername/iot-platform/shared/proto v0.0.0
+    google.golang.org/grpc v1.69.4
+)
+
+// Replace directive: utilise le chemin local
+replace github.com/yourusername/iot-platform/shared/proto => ../../shared/proto
+```
+
+**Points importants:**
+- Le chemin `github.com/yourusername/iot-platform` est un **placeholder**
+- Tu n'as pas besoin de le changer (le replace fait le travail)
+- C'est une pratique courante pour les mono-repos Go
+- Si tu publies sur GitHub, le chemin sera déjà correct
+
+### 5.9 Tests manuels avec curl
+
+**Créer un device:**
+```bash
+curl -X POST http://localhost:8080/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation { createDevice(input: { name: \"Sensor\", type: \"temp\", metadata: [{ key: \"location\", value: \"kitchen\" }] }) { id name status } }"
+  }'
+```
+
+**Récupérer un device:**
+```bash
+curl -X POST http://localhost:8080/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { device(id: \"uuid-ici\") { id name type status metadata { key value } } }"
+  }'
+```
+
+**Lister les devices:**
+```bash
+curl -X POST http://localhost:8080/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { devices(page: 1, pageSize: 10) { devices { id name status } total } }"
+  }'
+```
+
+### 5.10 GraphQL Playground
+
+Accéder à http://localhost:8080 pour ouvrir le playground interactif.
+
+**Exemple de mutation:**
+```graphql
+mutation CreateSensor {
+  createDevice(input: {
+    name: "Capteur Température Salon"
+    type: "temperature_sensor"
+    metadata: [
+      { key: "location", value: "salon" }
+      { key: "floor", value: "1" }
+    ]
+  }) {
+    id
+    name
+    type
+    status
+    createdAt
+    metadata {
+      key
+      value
+    }
+  }
+}
+```
+
+**Exemple de query:**
+```graphql
+query GetAllDevices {
+  devices(page: 1, pageSize: 10) {
+    devices {
+      id
+      name
+      type
+      status
+      createdAt
+      lastSeen
+    }
+    total
+    page
+    pageSize
+  }
+
+  stats {
+    totalDevices
+    onlineDevices
+    offlineDevices
+    errorDevices
+  }
+}
+```
+
+### 5.11 Erreurs courantes et solutions
+
+**1. Type mismatch: KeyValue vs MetadataEntry**
+```
+Error: undefined: model.KeyValue
+```
+**Cause:** Proto utilise `map<string, string>` mais GraphQL utilise `MetadataEntry`
+**Solution:** Convertir map → slice et slice → map
+
+**2. Module not found**
+```
+Error: module github.com/yourusername/... : git ls-remote failed
+```
+**Cause:** Pas de directive `replace` dans go.mod
+**Solution:** Ajouter `replace github.com/yourusername/iot-platform/shared/proto => ../../shared/proto`
+
+**3. Connection refused**
+```
+Error: failed to connect to device manager: connection refused
+```
+**Cause:** Device Manager pas démarré
+**Solution:** `make device-manager` dans un autre terminal
+
+### 5.12 Récapitulatif - Ce qu'on a appris
+
+✅ **Client gRPC persistant** - Évite de recréer la connexion à chaque requête
+✅ **Injection de dépendances** - Le Resolver contient le client gRPC
+✅ **Conversion de types** - Protobuf ↔ GraphQL (map vs slice)
+✅ **Séparation du code généré** - *Impl dans un fichier séparé
+✅ **Replace directives** - Utiliser des modules locaux sans GitHub
+✅ **Error handling** - Propager les erreurs gRPC correctement
+✅ **Context propagation** - Passer le context HTTP → GraphQL → gRPC
+
+**Chaîne complète validée:**
+```
+Client → GraphQL (HTTP/JSON) → API Gateway → gRPC (Protobuf) → Device Manager
+```
+
+---
+
+## 6. Synchronisation et thread-safety
+
+### 6.1 Le problème
 
 En Go, les goroutines s'exécutent en parallèle. Si plusieurs requêtes modifient la même map simultanément, c'est le **race condition** → crash.
 
@@ -559,7 +1026,7 @@ func (s *Server) CreateDevice(...) {
 }
 ```
 
-### 5.2 Solution: sync.RWMutex
+### 6.2 Solution: sync.RWMutex
 
 ```go
 // ✅ SAFE
@@ -583,7 +1050,7 @@ func (s *DeviceServer) GetDevice(...) {
 }
 ```
 
-### 5.3 RWMutex vs Mutex
+### 6.3 RWMutex vs Mutex
 
 | Type | Lock | RLock | Utilisation |
 |------|------|-------|-------------|
@@ -594,7 +1061,7 @@ func (s *DeviceServer) GetDevice(...) {
 - Beaucoup de lectures (`GetDevice`, `ListDevices`)
 - Peu d'écritures (`CreateDevice`, `UpdateDevice`)
 
-### 5.4 Deadlock et bonnes pratiques
+### 6.4 Deadlock et bonnes pratiques
 
 ```go
 // ❌ Deadlock
@@ -843,8 +1310,8 @@ docker-compose down -v      # Tout supprimer (volumes inclus)
 
 ### 9.1 TODO immédiat
 
-- [ ] Implémenter les resolvers GraphQL dans l'API Gateway
-- [ ] Connecter l'API Gateway au Device Manager via gRPC
+- [x] Implémenter les resolvers GraphQL dans l'API Gateway
+- [x] Connecter l'API Gateway au Device Manager via gRPC
 - [ ] Remplacer le stockage en mémoire par PostgreSQL
 - [ ] Ajouter des tests unitaires
 

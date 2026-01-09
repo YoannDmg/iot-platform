@@ -15,32 +15,32 @@ import (
 
 // CreateDevice is the resolver for the createDevice field.
 func (r *mutationResolver) CreateDevice(ctx context.Context, input model.CreateDeviceInput) (*model.Device, error) {
-	panic(fmt.Errorf("not implemented: CreateDevice - createDevice"))
+	return r.CreateDeviceImpl(ctx, input)
 }
 
 // UpdateDevice is the resolver for the updateDevice field.
 func (r *mutationResolver) UpdateDevice(ctx context.Context, input model.UpdateDeviceInput) (*model.Device, error) {
-	panic(fmt.Errorf("not implemented: UpdateDevice - updateDevice"))
+	return r.UpdateDeviceImpl(ctx, input)
 }
 
 // DeleteDevice is the resolver for the deleteDevice field.
 func (r *mutationResolver) DeleteDevice(ctx context.Context, id string) (*model.DeleteResult, error) {
-	panic(fmt.Errorf("not implemented: DeleteDevice - deleteDevice"))
+	return r.DeleteDeviceImpl(ctx, id)
 }
 
 // Device is the resolver for the device field.
 func (r *queryResolver) Device(ctx context.Context, id string) (*model.Device, error) {
-	panic(fmt.Errorf("not implemented: Device - device"))
+	return r.DeviceImpl(ctx, id)
 }
 
 // Devices is the resolver for the devices field.
 func (r *queryResolver) Devices(ctx context.Context, page *int, pageSize *int, typeArg *string, status *model.DeviceStatus) (*model.DeviceConnection, error) {
-	panic(fmt.Errorf("not implemented: Devices - devices"))
+	return r.DevicesImpl(ctx, page, pageSize, typeArg, status)
 }
 
 // Stats is the resolver for the stats field.
 func (r *queryResolver) Stats(ctx context.Context) (*model.Stats, error) {
-	panic(fmt.Errorf("not implemented: Stats - stats"))
+	return r.StatsImpl(ctx)
 }
 
 // DeviceUpdated is the resolver for the deviceUpdated field.

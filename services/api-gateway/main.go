@@ -9,9 +9,16 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
+
+	"github.com/yourusername/iot-platform/services/api-gateway/graph"
+	"github.com/yourusername/iot-platform/services/api-gateway/graph/generated"
+	grpcClient "github.com/yourusername/iot-platform/services/api-gateway/grpc"
 )
 
-const defaultPort = "8080"
+const (
+	defaultPort              = "8080"
+	defaultDeviceManagerAddr = "localhost:8081"
+)
 
 // main configures and starts the HTTP GraphQL server.
 //
@@ -22,25 +29,41 @@ const defaultPort = "8080"
 //
 // Configuration:
 //   - PORT: Server port (default: 8080)
+//   - DEVICE_MANAGER_ADDR: Device Manager address (default: localhost:8081)
 //
 // TODO Production:
-//   - Implement GraphQL resolvers
-//   - Connect to Device Manager via gRPC
 //   - Disable Playground in production
 //   - Add JWT authentication
 //   - Implement rate limiting
+//   - Add TLS support
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
 
-	// TODO: Enable once resolvers are implemented
-	// srv := handler.NewDefaultServer(
-	// 	generated.NewExecutableSchema(
-	// 		generated.Config{Resolvers: &graph.Resolver{}},
-	// 	),
-	// )
+	deviceManagerAddr := os.Getenv("DEVICE_MANAGER_ADDR")
+	if deviceManagerAddr == "" {
+		deviceManagerAddr = defaultDeviceManagerAddr
+	}
+
+	// Connect to Device Manager via gRPC
+	deviceClient, err := grpcClient.NewDeviceClient(deviceManagerAddr)
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to Device Manager: %v", err)
+	}
+	defer deviceClient.Close()
+
+	// Create GraphQL server
+	srv := handler.NewDefaultServer(
+		generated.NewExecutableSchema(
+			generated.Config{
+				Resolvers: &graph.Resolver{
+					DeviceClient: deviceClient.GetClient(),
+				},
+			},
+		),
+	)
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -50,15 +73,25 @@ func main() {
 	// GraphQL Playground - disable in production
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 
-	// TODO: GraphQL endpoint
-	// http.Handle("/query", srv)
+	// GraphQL API endpoint
+	http.Handle("/query", srv)
 
-	log.Printf("🚀 API Gateway started on port %s", port)
+	log.Println("=====================================")
+	log.Printf("🚀 API Gateway Service")
+	log.Println("=====================================")
+	log.Printf("📡 Protocol: GraphQL (HTTP)")
+	log.Printf("🔌 Port: %s", port)
+	log.Printf("🔗 Device Manager: %s", deviceManagerAddr)
+	log.Println("-------------------------------------")
 	log.Printf("📊 GraphQL Playground: http://localhost:%s/", port)
 	log.Printf("🔗 GraphQL API: http://localhost:%s/query", port)
 	log.Printf("💚 Health check: http://localhost:%s/health", port)
+	log.Println("=====================================")
+	log.Printf("✅ Server started")
+	log.Println("=====================================")
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("❌ Server error: %v", err)
 	}
 }
+

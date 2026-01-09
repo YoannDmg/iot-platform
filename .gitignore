@@ -49,4 +49,8 @@ docker-compose.override.yml
 # Temporary files
 tmp/
 temp/
+
+# Compiled binaries
 services/device-manager/device-manager
+services/api-gateway/api-gateway
+bin/

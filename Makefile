@@ -30,6 +30,9 @@ help: ## Affiche l'aide
 	@echo "🧪 TESTS"
 	@grep -E '^(test|test-device|test-api):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
+	@echo "🗄️  DATABASE"
+	@grep -E '^(db-migrate|db-reset|db-status|sqlc-generate):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
 	@echo "🛠️  UTILS"
 	@grep -E '^(deps|fmt|lint):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
@@ -147,6 +150,30 @@ test-device: ## Tests du Device Manager uniquement
 
 test-api: ## Tests de l'API Gateway uniquement
 	@cd services/api-gateway && go test ./... -v
+
+#==================================================================================
+# DATABASE
+#==================================================================================
+
+db-migrate: ## Lance les migrations PostgreSQL
+	@echo "🗄️  Lancement des migrations..."
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < services/device-manager/db/migrations/001_init.sql
+	@echo "✅ Migrations terminées!"
+
+db-reset: ## Réinitialise la base de données
+	@echo "🗑️  Réinitialisation de la base..."
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	@$(MAKE) db-migrate
+	@echo "✅ Base réinitialisée!"
+
+db-status: ## Vérifie le statut de la base
+	@echo "🔍 Statut de la base de données..."
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform -c "\dt"
+
+sqlc-generate: ## Génère le code sqlc
+	@echo "🔨 Génération du code sqlc..."
+	@cd services/device-manager && sqlc generate
+	@echo "✅ Code sqlc généré!"
 
 #==================================================================================
 # UTILS

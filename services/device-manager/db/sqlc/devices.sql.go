@@ -238,29 +238,29 @@ func (q *Queries) ListDevicesByType(ctx context.Context, arg ListDevicesByTypePa
 const updateDevice = `-- name: UpdateDevice :one
 UPDATE devices
 SET
-    name = COALESCE(NULLIF($2, ''), name),
-    status = COALESCE($3, status),
-    metadata = COALESCE($4, metadata),
-    last_seen = $5
-WHERE id = $1
+    name = $1,
+    status = $2,
+    metadata = $3,
+    last_seen = $4
+WHERE id = $5
 RETURNING id, name, type, status, created_at, last_seen, metadata
 `
 
 type UpdateDeviceParams struct {
-	ID       pgtype.UUID        `json:"id"`
-	Column2  interface{}        `json:"column_2"`
+	Name     string             `json:"name"`
 	Status   DeviceStatus       `json:"status"`
 	Metadata []byte             `json:"metadata"`
 	LastSeen pgtype.Timestamptz `json:"last_seen"`
+	ID       pgtype.UUID        `json:"id"`
 }
 
 func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Device, error) {
 	row := q.db.QueryRow(ctx, updateDevice,
-		arg.ID,
-		arg.Column2,
+		arg.Name,
 		arg.Status,
 		arg.Metadata,
 		arg.LastSeen,
+		arg.ID,
 	)
 	var i Device
 	err := row.Scan(

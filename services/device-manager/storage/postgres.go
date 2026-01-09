@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,9 +50,9 @@ func (s *PostgresStorage) CreateDevice(ctx context.Context, device *pb.Device) (
 		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	// Parse UUID
-	deviceUUID, err := uuid.Parse(device.Id)
-	if err != nil {
+	// Parse UUID string to pgtype.UUID
+	var pgUUID pgtype.UUID
+	if err := pgUUID.Scan(device.Id); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid device ID: %v", err)
 	}
 
@@ -61,18 +61,18 @@ func (s *PostgresStorage) CreateDevice(ctx context.Context, device *pb.Device) (
 
 	// Create timestamps
 	createdAt := pgtype.Timestamptz{}
-	if err := createdAt.Scan(device.CreatedAt); err != nil {
+	if err := createdAt.Scan(time.Unix(device.CreatedAt, 0)); err != nil {
 		return nil, fmt.Errorf("failed to parse created_at: %w", err)
 	}
 
 	lastSeen := pgtype.Timestamptz{}
-	if err := lastSeen.Scan(device.LastSeen); err != nil {
+	if err := lastSeen.Scan(time.Unix(device.LastSeen, 0)); err != nil {
 		return nil, fmt.Errorf("failed to parse last_seen: %w", err)
 	}
 
 	// Insert device
 	dbDevice, err := s.queries.CreateDevice(ctx, sqlc.CreateDeviceParams{
-		ID:        deviceUUID,
+		ID:        pgUUID,
 		Name:      device.Name,
 		Type:      device.Type,
 		Status:    dbStatus,
@@ -89,12 +89,12 @@ func (s *PostgresStorage) CreateDevice(ctx context.Context, device *pb.Device) (
 
 // GetDevice implements Storage.GetDevice.
 func (s *PostgresStorage) GetDevice(ctx context.Context, id string) (*pb.Device, error) {
-	deviceUUID, err := uuid.Parse(id)
-	if err != nil {
+	var pgUUID pgtype.UUID
+	if err := pgUUID.Scan(id); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid device ID: %v", err)
 	}
 
-	dbDevice, err := s.queries.GetDevice(ctx, deviceUUID)
+	dbDevice, err := s.queries.GetDevice(ctx, pgUUID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, status.Errorf(codes.NotFound, "device %s not found", id)
@@ -140,13 +140,14 @@ func (s *PostgresStorage) ListDevices(ctx context.Context, page, pageSize int32)
 
 // UpdateDevice implements Storage.UpdateDevice.
 func (s *PostgresStorage) UpdateDevice(ctx context.Context, device *pb.Device) (*pb.Device, error) {
-	deviceUUID, err := uuid.Parse(device.Id)
-	if err != nil {
+	var pgUUID pgtype.UUID
+	if err := pgUUID.Scan(device.Id); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid device ID: %v", err)
 	}
 
 	// Prepare metadata
 	var metadataJSON []byte
+	var err error
 	if device.Metadata != nil {
 		metadataJSON, err = json.Marshal(device.Metadata)
 		if err != nil {
@@ -155,23 +156,17 @@ func (s *PostgresStorage) UpdateDevice(ctx context.Context, device *pb.Device) (
 	}
 
 	// Convert status
-	var dbStatus sqlc.NullDeviceStatus
-	if device.Status != pb.DeviceStatus_UNKNOWN {
-		dbStatus = sqlc.NullDeviceStatus{
-			DeviceStatus: protoStatusToDBStatus(device.Status),
-			Valid:        true,
-		}
-	}
+	dbStatus := protoStatusToDBStatus(device.Status)
 
 	// Update last_seen
 	lastSeen := pgtype.Timestamptz{}
-	if err := lastSeen.Scan(device.LastSeen); err != nil {
+	if err := lastSeen.Scan(time.Unix(device.LastSeen, 0)); err != nil {
 		return nil, fmt.Errorf("failed to parse last_seen: %w", err)
 	}
 
 	// Update device
 	dbDevice, err := s.queries.UpdateDevice(ctx, sqlc.UpdateDeviceParams{
-		ID:       deviceUUID,
+		ID:       pgUUID,
 		Name:     device.Name,
 		Status:   dbStatus,
 		Metadata: metadataJSON,
@@ -189,13 +184,13 @@ func (s *PostgresStorage) UpdateDevice(ctx context.Context, device *pb.Device) (
 
 // DeleteDevice implements Storage.DeleteDevice.
 func (s *PostgresStorage) DeleteDevice(ctx context.Context, id string) error {
-	deviceUUID, err := uuid.Parse(id)
-	if err != nil {
+	var pgUUID pgtype.UUID
+	if err := pgUUID.Scan(id); err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid device ID: %v", err)
 	}
 
 	// Check if device exists first
-	_, err = s.queries.GetDevice(ctx, deviceUUID)
+	_, err := s.queries.GetDevice(ctx, pgUUID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return status.Errorf(codes.NotFound, "device %s not found", id)
@@ -204,7 +199,7 @@ func (s *PostgresStorage) DeleteDevice(ctx context.Context, id string) error {
 	}
 
 	// Delete device
-	if err := s.queries.DeleteDevice(ctx, deviceUUID); err != nil {
+	if err := s.queries.DeleteDevice(ctx, pgUUID); err != nil {
 		return fmt.Errorf("failed to delete device: %w", err)
 	}
 

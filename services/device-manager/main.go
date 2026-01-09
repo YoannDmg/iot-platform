@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,25 +16,24 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/yourusername/iot-platform/shared/proto"
+	"github.com/yourusername/iot-platform/services/device-manager/storage"
 )
 
 // DeviceServer implements pb.DeviceServiceServer interface.
-// Thread-safe using sync.RWMutex for concurrent reads.
+// Uses pluggable Storage backend (PostgreSQL or in-memory).
 //
 // TODO Production:
-//   - Replace in-memory storage with PostgreSQL
 //   - Add interceptors (logging, auth, metrics)
 //   - Implement graceful shutdown
 type DeviceServer struct {
 	pb.UnimplementedDeviceServiceServer
-	mu      sync.RWMutex
-	devices map[string]*pb.Device
+	storage storage.Storage
 }
 
-// NewDeviceServer creates a new server instance.
-func NewDeviceServer() *DeviceServer {
+// NewDeviceServer creates a new server instance with the given storage backend.
+func NewDeviceServer(store storage.Storage) *DeviceServer {
 	return &DeviceServer{
-		devices: make(map[string]*pb.Device),
+		storage: store,
 	}
 }
 
@@ -60,24 +59,22 @@ func (s *DeviceServer) CreateDevice(ctx context.Context, req *pb.CreateDeviceReq
 		Metadata:  req.Metadata,
 	}
 
-	s.mu.Lock()
-	s.devices[device.Id] = device
-	s.mu.Unlock()
+	createdDevice, err := s.storage.CreateDevice(ctx, device)
+	if err != nil {
+		return nil, err
+	}
 
-	log.Printf("✅ Device created: id=%s", device.Id)
-	return &pb.CreateDeviceResponse{Device: device}, nil
+	log.Printf("✅ Device created: id=%s", createdDevice.Id)
+	return &pb.CreateDeviceResponse{Device: createdDevice}, nil
 }
 
 // GetDevice retrieves a device by ID.
 func (s *DeviceServer) GetDevice(ctx context.Context, req *pb.GetDeviceRequest) (*pb.GetDeviceResponse, error) {
 	log.Printf("📥 GetDevice: id=%s", req.Id)
 
-	s.mu.RLock()
-	device, exists := s.devices[req.Id]
-	s.mu.RUnlock()
-
-	if !exists {
-		return nil, status.Errorf(codes.NotFound, "device %s not found", req.Id)
+	device, err := s.storage.GetDevice(ctx, req.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	log.Printf("✅ Device found: id=%s, name=%s", device.Id, device.Name)
@@ -85,22 +82,18 @@ func (s *DeviceServer) GetDevice(ctx context.Context, req *pb.GetDeviceRequest) 
 }
 
 // ListDevices returns paginated device list.
-// TODO: Implement actual pagination and sorting.
 func (s *DeviceServer) ListDevices(ctx context.Context, req *pb.ListDevicesRequest) (*pb.ListDevicesResponse, error) {
 	log.Printf("📥 ListDevices: page=%d, pageSize=%d", req.Page, req.PageSize)
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	devices := make([]*pb.Device, 0, len(s.devices))
-	for _, device := range s.devices {
-		devices = append(devices, device)
+	devices, total, err := s.storage.ListDevices(ctx, req.Page, req.PageSize)
+	if err != nil {
+		return nil, err
 	}
 
 	log.Printf("✅ %d devices found", len(devices))
 	return &pb.ListDevicesResponse{
 		Devices:  devices,
-		Total:    int32(len(devices)),
+		Total:    total,
 		Page:     req.Page,
 		PageSize: req.PageSize,
 	}, nil
@@ -115,26 +108,22 @@ func (s *DeviceServer) UpdateDevice(ctx context.Context, req *pb.UpdateDeviceReq
 		return nil, status.Error(codes.InvalidArgument, "ID required")
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	device, exists := s.devices[req.Id]
-	if !exists {
-		return nil, status.Errorf(codes.NotFound, "device %s not found", req.Id)
+	// Prepare update with fields to change
+	device := &pb.Device{
+		Id:       req.Id,
+		Name:     req.Name,
+		Status:   req.Status,
+		Metadata: req.Metadata,
+		LastSeen: time.Now().Unix(),
 	}
 
-	if req.Name != "" {
-		device.Name = req.Name
-	}
-	if req.Status != pb.DeviceStatus_UNKNOWN {
-		device.Status = req.Status
-	}
-	if req.Metadata != nil {
-		device.Metadata = req.Metadata
+	updatedDevice, err := s.storage.UpdateDevice(ctx, device)
+	if err != nil {
+		return nil, err
 	}
 
-	log.Printf("✅ Device updated: id=%s", device.Id)
-	return &pb.UpdateDeviceResponse{Device: device}, nil
+	log.Printf("✅ Device updated: id=%s", updatedDevice.Id)
+	return &pb.UpdateDeviceResponse{Device: updatedDevice}, nil
 }
 
 // DeleteDevice removes a device by ID.
@@ -145,16 +134,11 @@ func (s *DeviceServer) DeleteDevice(ctx context.Context, req *pb.DeleteDeviceReq
 		return nil, status.Error(codes.InvalidArgument, "ID required")
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.devices[req.Id]; !exists {
-		return nil, status.Errorf(codes.NotFound, "device %s not found", req.Id)
+	if err := s.storage.DeleteDevice(ctx, req.Id); err != nil {
+		return nil, err
 	}
 
-	delete(s.devices, req.Id)
 	log.Printf("✅ Device deleted: id=%s", req.Id)
-
 	return &pb.DeleteDeviceResponse{
 		Success: true,
 		Message: fmt.Sprintf("Device %s deleted", req.Id),
@@ -163,17 +147,50 @@ func (s *DeviceServer) DeleteDevice(ctx context.Context, req *pb.DeleteDeviceReq
 
 // main initializes and starts the Device Manager gRPC server.
 //
-// Configuration:
-//   - Port: 8081
-//   - Protocol: gRPC (HTTP/2)
+// Configuration via environment variables:
+//   - STORAGE_TYPE: "postgres" or "memory" (default: memory)
+//   - DB_HOST: PostgreSQL host (default: localhost)
+//   - DB_PORT: PostgreSQL port (default: 5432)
+//   - DB_NAME: Database name (default: iot_platform)
+//   - DB_USER: Database user (default: iot_user)
+//   - DB_PASSWORD: Database password (default: iot_password)
+//   - DB_SSLMODE: SSL mode (default: disable)
 //
 // TODO Production:
-//   - Configurable port via env var
 //   - TLS/mTLS support
 //   - Health check endpoint
 //   - Graceful shutdown
 func main() {
+	ctx := context.Background()
 	port := 8081
+
+	// Configure storage backend
+	storageType := getEnv("STORAGE_TYPE", "memory")
+	var store storage.Storage
+	var err error
+
+	switch storageType {
+	case "postgres":
+		// Build PostgreSQL DSN
+		dsn := fmt.Sprintf(
+			"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+			getEnv("DB_USER", "iot_user"),
+			getEnv("DB_PASSWORD", "iot_password"),
+			getEnv("DB_HOST", "localhost"),
+			getEnv("DB_PORT", "5432"),
+			getEnv("DB_NAME", "iot_platform"),
+			getEnv("DB_SSLMODE", "disable"),
+		)
+		store, err = storage.NewPostgresStorage(ctx, dsn)
+		if err != nil {
+			log.Fatalf("❌ Failed to connect to PostgreSQL: %v", err)
+		}
+		defer store.Close()
+		log.Printf("✅ Using PostgreSQL storage")
+	default:
+		store = storage.NewMemoryStorage()
+		log.Printf("✅ Using in-memory storage")
+	}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -181,7 +198,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	deviceServer := NewDeviceServer()
+	deviceServer := NewDeviceServer(store)
 	pb.RegisterDeviceServiceServer(grpcServer, deviceServer)
 
 	log.Println("=====================================")
@@ -189,6 +206,7 @@ func main() {
 	log.Println("=====================================")
 	log.Printf("Protocol: gRPC (HTTP/2)")
 	log.Printf("Port: %d", port)
+	log.Printf("Storage: %s", storageType)
 	log.Printf("Address: http://localhost:%d", port)
 	log.Println("-------------------------------------")
 	log.Printf("✅ Server started")
@@ -198,4 +216,12 @@ func main() {
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("❌ Server error: %v", err)
 	}
+}
+
+// getEnv retrieves an environment variable or returns a default value.
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

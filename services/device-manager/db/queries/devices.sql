@@ -29,11 +29,11 @@ SELECT COUNT(*) FROM devices;
 -- name: UpdateDevice :one
 UPDATE devices
 SET
-    name = COALESCE(NULLIF($2, ''), name),
-    status = COALESCE($3, status),
-    metadata = COALESCE($4, metadata),
-    last_seen = $5
-WHERE id = $1
+    name = sqlc.arg(name),
+    status = sqlc.arg(status),
+    metadata = sqlc.arg(metadata),
+    last_seen = sqlc.arg(last_seen)
+WHERE id = sqlc.arg(id)
 RETURNING *;
 
 -- name: DeleteDevice :exec

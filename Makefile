@@ -28,7 +28,7 @@ help: ## Affiche l'aide
 	@grep -E '^(device-manager|api-gateway|dev):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🧪 TESTS"
-	@grep -E '^(test|test-device|test-api):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(test|test-device|test-device-integration|test-api):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🗄️  DATABASE"
 	@grep -E '^(db-migrate|db-reset|db-status|sqlc-generate):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -147,6 +147,10 @@ test: ## Lance tous les tests
 
 test-device: ## Tests du Device Manager uniquement
 	@cd services/device-manager && go test ./... -v
+
+test-device-integration: ## Tests d'intégration PostgreSQL (nécessite Docker)
+	@echo "🧪 Tests d'intégration Device Manager avec PostgreSQL..."
+	@cd services/device-manager && go test -tags=integration -v
 
 test-api: ## Tests de l'API Gateway uniquement
 	@cd services/api-gateway && go test ./... -v

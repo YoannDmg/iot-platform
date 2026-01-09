@@ -1,104 +1,172 @@
-.PHONY: help start stop restart logs clean build test
+.PHONY: help setup generate clean build dev test
 
-help: ## Afficher l'aide
-	@echo "Commandes disponibles :"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+# Variables
+SERVICES := device-manager api-gateway
+PROTO_DIR := shared/proto
+BIN_DIR := bin
 
-# Infrastructure
-start: ## Démarrer l'infrastructure locale (Docker)
-	docker-compose up -d
-	@echo "✅ Infrastructure démarrée"
-	@echo "PostgreSQL: localhost:5432"
-	@echo "Redis: localhost:6379"
-	@echo "MQTT: localhost:1883"
-	@echo "Prometheus: http://localhost:9090"
-	@echo "Grafana: http://localhost:3000 (admin/admin)"
+#==================================================================================
+# HELP
+#==================================================================================
 
-stop: ## Arrêter l'infrastructure
-	docker-compose down
-	@echo "✅ Infrastructure arrêtée"
+help: ## Affiche l'aide
+	@echo ""
+	@echo "╔════════════════════════════════════════════════════════════════╗"
+	@echo "║                 IoT Platform - Commandes Make                  ║"
+	@echo "╚════════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@echo "📦 SETUP & GÉNÉRATION"
+	@grep -E '^(setup|generate|generate-proto|generate-graphql):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "🔨 BUILD & CLEAN"
+	@grep -E '^(build|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "🐳 DOCKER"
+	@grep -E '^(up|down|logs|status|restart):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "🚀 SERVICES (DEV MODE)"
+	@grep -E '^(device-manager|api-gateway|dev):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "🧪 TESTS"
+	@grep -E '^(test|test-device|test-api):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "🛠️  UTILS"
+	@grep -E '^(deps|fmt|lint):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
 
-restart: ## Redémarrer l'infrastructure
-	docker-compose restart
-	@echo "✅ Infrastructure redémarrée"
+#==================================================================================
+# SETUP & GÉNÉRATION
+#==================================================================================
 
-logs: ## Voir les logs de l'infrastructure
-	docker-compose logs -f
-
-clean: ## Nettoyer les volumes et containers
-	docker-compose down -v
-	@echo "✅ Volumes et containers supprimés"
-
-# Services
-api-gateway: ## Démarrer l'API Gateway
-	cd services/api-gateway && go run main.go
-
-device-manager: ## Démarrer le Device Manager
-	cd services/device-manager && go run main.go
-
-data-collector: ## Démarrer le Data Collector
-	cd services/data-collector && cargo run
-
-notification-service: ## Démarrer le Notification Service
-	cd services/notification-service && go run main.go
-
-# Frontend
-web: ## Démarrer le dashboard web
-	cd frontends/web-dashboard && npm run dev
-
-mobile: ## Démarrer l'app mobile (Flutter)
-	cd frontends/mobile-app && flutter run
-
-# Développement
-install-tools: ## Installer les outils nécessaires (protoc, gqlgen, etc.)
+setup: ## Installe tous les outils nécessaires
 	@echo "📦 Installation des outils..."
-	@command -v protoc >/dev/null 2>&1 || (echo "❌ protoc non installé. Run: brew install protobuf" && exit 1)
+	@command -v protoc >/dev/null 2>&1 || (echo "❌ protoc non installé. Installez-le avec: brew install protobuf" && exit 1)
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	go install github.com/99designs/gqlgen@latest
-	@echo "✅ Outils installés"
+	@echo "✅ Setup terminé!"
 
-generate-proto: ## Générer le code Protocol Buffers
-	@echo "🔧 Génération du code proto..."
-	cd shared/proto && ./generate.sh
-	@echo "✅ Code proto généré"
+generate: generate-proto generate-graphql ## Génère tout le code (proto + GraphQL)
 
-generate-graphql: ## Générer le code GraphQL
-	@echo "🔧 Génération du code GraphQL..."
-	cd services/api-gateway && go run github.com/99designs/gqlgen generate
-	@echo "✅ Code GraphQL généré"
+generate-proto: ## Génère le code Protobuf
+	@echo "🔨 Génération du code Protobuf..."
+	@cd $(PROTO_DIR) && ./generate.sh
+	@echo "✅ Proto généré!"
 
-generate: generate-proto generate-graphql ## Générer tout le code (proto + GraphQL)
+generate-graphql: ## Génère le code GraphQL
+	@echo "🔨 Génération du code GraphQL..."
+	@cd services/api-gateway && gqlgen generate
+	@echo "✅ GraphQL généré!"
 
-install-go-deps: ## Installer les dépendances Go
-	@echo "📦 Installation des dépendances Go..."
-	cd services/api-gateway && go mod download
-	cd services/device-manager && go mod download
-	@echo "✅ Dépendances Go installées"
+#==================================================================================
+# BUILD & CLEAN
+#==================================================================================
 
-install-rust-deps: ## Installer les dépendances Rust
-	cd services/data-collector && cargo build
+build: ## Compile tous les services
+	@echo "🔨 Compilation de tous les services..."
+	@mkdir -p $(BIN_DIR)
+	@for service in $(SERVICES); do \
+		echo "  → Building $$service..."; \
+		cd services/$$service && go build -o ../../$(BIN_DIR)/$$service && cd ../..; \
+	done
+	@echo "✅ Build terminé! Binaires dans ./$(BIN_DIR)/"
 
-install-web-deps: ## Installer les dépendances web
-	cd frontends/web-dashboard && npm install
+clean: ## Supprime les binaires et fichiers temporaires
+	@echo "🧹 Nettoyage..."
+	@rm -rf $(BIN_DIR)/
+	@rm -f services/device-manager/device-manager
+	@rm -f services/api-gateway/api-gateway
+	@echo "✅ Nettoyage terminé!"
 
-setup: install-tools install-go-deps ## Configuration initiale (outils + dépendances)
-	@echo "✅ Setup terminé"
+#==================================================================================
+# DOCKER
+#==================================================================================
 
-init: setup start ## Initialiser le projet (première fois)
-	@echo "🚀 Initialisation du projet..."
-	@echo "⏳ Attente du démarrage de l'infrastructure..."
-	@sleep 10
-	@echo "✅ Projet initialisé"
+up: ## Lance l'infrastructure Docker (Postgres, Redis, MQTT)
+	@echo "🐳 Démarrage de l'infrastructure..."
+	@docker-compose up -d
+	@echo "✅ Infrastructure démarrée!"
+	@echo "PostgreSQL: localhost:5432"
+	@echo "Redis: localhost:6379"
+	@echo "MQTT: localhost:1883"
 
-# Tests
-test: ## Lancer tous les tests
-	@echo "Running tests..."
-	cd services/api-gateway && go test ./...
-	cd services/device-manager && go test ./...
-	cd services/data-collector && cargo test
-	cd frontends/web-dashboard && npm test
+down: ## Arrête l'infrastructure Docker
+	@echo "🛑 Arrêt de l'infrastructure..."
+	@docker-compose down
+	@echo "✅ Infrastructure arrêtée!"
 
-# Status
-status: ## Voir le statut des services
+logs: ## Affiche les logs Docker
+	@docker-compose logs -f
+
+status: ## Affiche le status de l'infrastructure
 	@docker-compose ps
+
+restart: ## Redémarre l'infrastructure
+	@docker-compose restart
+	@echo "✅ Infrastructure redémarrée!"
+
+#==================================================================================
+# SERVICES (DEV MODE)
+#==================================================================================
+
+device-manager: ## Lance le Device Manager
+	@echo "🚀 Démarrage du Device Manager..."
+	@cd services/device-manager && go run main.go
+
+api-gateway: ## Lance l'API Gateway
+	@echo "🚀 Démarrage de l'API Gateway..."
+	@cd services/api-gateway && go run main.go
+
+dev: up ## Lance TOUT: infra + services (en parallèle)
+	@echo "🚀 Démarrage complet de la plateforme..."
+	@echo ""
+	@echo "⏳ Attente de l'infrastructure Docker..."
+	@sleep 5
+	@echo "✅ Infrastructure prête!"
+	@echo ""
+	@echo "⚠️  Utilise Ctrl+C pour arrêter tous les services."
+	@echo ""
+	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
+	$(MAKE) device-manager & \
+	(sleep 3 && $(MAKE) api-gateway) & \
+	wait
+
+#==================================================================================
+# TESTS
+#==================================================================================
+
+test: ## Lance tous les tests
+	@echo "🧪 Lancement des tests..."
+	@for service in $(SERVICES); do \
+		echo "  → Testing $$service..."; \
+		cd services/$$service && go test ./... -v && cd ../..; \
+	done
+
+test-device: ## Tests du Device Manager uniquement
+	@cd services/device-manager && go test ./... -v
+
+test-api: ## Tests de l'API Gateway uniquement
+	@cd services/api-gateway && go test ./... -v
+
+#==================================================================================
+# UTILS
+#==================================================================================
+
+deps: ## Met à jour les dépendances Go
+	@echo "📦 Mise à jour des dépendances..."
+	@for service in $(SERVICES); do \
+		echo "  → $$service"; \
+		cd services/$$service && go mod tidy && cd ../..; \
+	done
+	@echo "✅ Dépendances à jour!"
+
+fmt: ## Formate le code Go
+	@echo "✨ Formatage du code..."
+	@gofmt -w services/
+
+lint: ## Lint le code (nécessite golangci-lint)
+	@echo "🔍 Linting..."
+	@for service in $(SERVICES); do \
+		echo "  → $$service"; \
+		cd services/$$service && golangci-lint run && cd ../..; \
+	done

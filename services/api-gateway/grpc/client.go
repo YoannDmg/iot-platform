@@ -2,10 +2,8 @@
 package grpc
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,18 +19,13 @@ type DeviceClient struct {
 
 // NewDeviceClient creates a new gRPC client connection to Device Manager.
 func NewDeviceClient(address string) (*DeviceClient, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	// TODO Production: Add TLS credentials
-	conn, err := grpc.DialContext(
-		ctx,
+	conn, err := grpc.NewClient(
 		address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to device manager: %w", err)
+		return nil, fmt.Errorf("failed to create grpc client: %w", err)
 	}
 
 	log.Printf("✅ Connected to Device Manager at %s", address)

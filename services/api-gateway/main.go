@@ -52,7 +52,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to Device Manager: %v", err)
 	}
-	defer deviceClient.Close()
+	defer func() {
+		if err := deviceClient.Close(); err != nil {
+			log.Printf("⚠️  Failed to close gRPC connection: %v", err)
+		}
+	}()
 
 	// Create GraphQL server
 	srv := handler.NewDefaultServer(
@@ -67,7 +71,9 @@ func main() {
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok","service":"api-gateway"}`))
+		if _, err := w.Write([]byte(`{"status":"ok","service":"api-gateway"}`)); err != nil {
+			log.Printf("⚠️  Failed to write health check response: %v", err)
+		}
 	})
 
 	// GraphQL Playground - disable in production

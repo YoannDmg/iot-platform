@@ -185,7 +185,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("❌ Failed to connect to PostgreSQL: %v", err)
 		}
-		defer store.Close()
+		defer func() {
+			if err := store.Close(); err != nil {
+				log.Printf("⚠️  Error closing storage: %v", err)
+			}
+		}()
 		log.Printf("✅ Using PostgreSQL storage")
 	default:
 		store = storage.NewMemoryStorage()

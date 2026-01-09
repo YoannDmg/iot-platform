@@ -183,7 +183,7 @@ deps: ## Met à jour les dépendances Go
 	@echo "📦 Mise à jour des dépendances..."
 	@for service in $(SERVICES); do \
 		echo "  → $$service"; \
-		cd services/$$service && go mod tidy && cd ../..; \
+		(cd services/$$service && go mod tidy) || exit 1; \
 	done
 	@echo "✅ Dépendances à jour!"
 
@@ -195,5 +195,5 @@ lint: ## Lint le code (nécessite golangci-lint)
 	@echo "🔍 Linting..."
 	@for service in $(SERVICES); do \
 		echo "  → $$service"; \
-		cd services/$$service && golangci-lint run && cd ../..; \
+		(cd services/$$service && golangci-lint run) || exit 1; \
 	done

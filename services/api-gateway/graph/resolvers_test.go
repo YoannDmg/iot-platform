@@ -114,7 +114,7 @@ func TestCreateDeviceImpl(t *testing.T) {
 			input: model.CreateDeviceInput{
 				Name: "Smart Device",
 				Type: "hvac",
-				Metadata: []*model.KeyValue{
+				Metadata: []*model.MetadataEntryInput{
 					{Key: "location", Value: "room-101"},
 					{Key: "floor", Value: "2"},
 				},

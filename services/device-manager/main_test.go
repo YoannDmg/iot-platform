@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	pb "github.com/yourusername/iot-platform/shared/proto"
+	"github.com/yourusername/iot-platform/services/device-manager/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -67,7 +68,7 @@ func TestCreateDevice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := NewDeviceServer()
+			server := NewDeviceServer(storage.NewMemoryStorage())
 			ctx := context.Background()
 
 			resp, err := server.CreateDevice(ctx, tt.request)
@@ -143,7 +144,7 @@ func TestCreateDevice(t *testing.T) {
 
 // TestGetDevice tests device retrieval functionality.
 func TestGetDevice(t *testing.T) {
-	server := NewDeviceServer()
+	server := NewDeviceServer(storage.NewMemoryStorage())
 	ctx := context.Background()
 
 	// Create a test device first
@@ -216,7 +217,7 @@ func TestGetDevice(t *testing.T) {
 
 // TestListDevices tests device listing functionality.
 func TestListDevices(t *testing.T) {
-	server := NewDeviceServer()
+	server := NewDeviceServer(storage.NewMemoryStorage())
 	ctx := context.Background()
 
 	// Test empty list
@@ -284,7 +285,7 @@ func TestListDevices(t *testing.T) {
 
 // TestUpdateDevice tests device update functionality.
 func TestUpdateDevice(t *testing.T) {
-	server := NewDeviceServer()
+	server := NewDeviceServer(storage.NewMemoryStorage())
 	ctx := context.Background()
 
 	// Create a test device
@@ -417,7 +418,7 @@ func TestUpdateDevice(t *testing.T) {
 
 // TestDeleteDevice tests device deletion functionality.
 func TestDeleteDevice(t *testing.T) {
-	server := NewDeviceServer()
+	server := NewDeviceServer(storage.NewMemoryStorage())
 	ctx := context.Background()
 
 	// Create a test device
@@ -500,7 +501,7 @@ func TestDeleteDevice(t *testing.T) {
 
 // TestConcurrentOperations tests thread safety with concurrent access.
 func TestConcurrentOperations(t *testing.T) {
-	server := NewDeviceServer()
+	server := NewDeviceServer(storage.NewMemoryStorage())
 	ctx := context.Background()
 
 	// Number of concurrent goroutines

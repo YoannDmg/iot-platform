@@ -62,7 +62,7 @@ const config: Config = {
           label: '📝 Notes',
         },
         {
-          href: 'https://github.com/your-org/iot-platform',
+          href: 'https://github.com/YoannDmg/iot-platform',
           label: 'GitHub',
           position: 'right',
         },

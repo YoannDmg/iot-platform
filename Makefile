@@ -239,6 +239,7 @@ db-status: ## Vérifie le statut de la base
 sqlc-generate: ## Génère le code sqlc
 	@echo "🔨 Génération du code sqlc..."
 	@cd services/device-manager && sqlc generate
+	@cd services/user-service && sqlc generate
 	@echo "✅ Code sqlc généré!"
 
 #==================================================================================

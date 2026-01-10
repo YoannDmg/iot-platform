@@ -4,7 +4,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v6.33.2
-// source: device.proto
+// source: device/device.proto
 
 // Package pour organiser le code généré
 
@@ -333,5 +333,5 @@ var DeviceService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "device.proto",
+	Metadata: "device/device.proto",
 }

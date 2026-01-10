@@ -1,0 +1,137 @@
+// Protocol Buffers version 3
+syntax = "proto3";
+
+// Package pour organiser le code généré
+package user;
+
+// Options de génération pour Go
+option go_package = "github.com/yourusername/iot-platform/shared/proto/user";
+
+// ============================================
+// MESSAGES (= Structures de données)
+// ============================================
+
+// Représente un utilisateur
+message User {
+  string id = 1;              // Identifiant unique (UUID)
+  string email = 2;           // Email (unique)
+  string name = 3;            // Nom complet
+  string role = 4;            // Rôle (admin, user, device)
+  int64 created_at = 5;       // Timestamp de création
+  int64 last_login = 6;       // Dernière connexion
+  bool is_active = 7;         // Compte actif ou non
+}
+
+// Requête d'enregistrement
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string name = 3;
+  string role = 4;            // Optionnel, par défaut "user"
+}
+
+// Réponse après enregistrement
+message RegisterResponse {
+  User user = 1;
+  string message = 2;
+}
+
+// Requête d'authentification
+message AuthenticateRequest {
+  string email = 1;
+  string password = 2;
+}
+
+// Réponse après authentification
+message AuthenticateResponse {
+  User user = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Requête pour récupérer un utilisateur par ID
+message GetUserRequest {
+  string id = 1;
+}
+
+// Réponse avec un utilisateur
+message GetUserResponse {
+  User user = 1;
+}
+
+// Requête pour récupérer un utilisateur par email
+message GetUserByEmailRequest {
+  string email = 1;
+}
+
+// Réponse avec un utilisateur
+message GetUserByEmailResponse {
+  User user = 1;
+}
+
+// Requête pour lister les utilisateurs
+message ListUsersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string role = 3;            // Filtrer par rôle (optionnel)
+}
+
+// Réponse avec une liste d'utilisateurs
+message ListUsersResponse {
+  repeated User users = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Requête pour mettre à jour un utilisateur
+message UpdateUserRequest {
+  string id = 1;
+  string name = 2;
+  string role = 3;
+  bool is_active = 4;
+}
+
+// Réponse après mise à jour
+message UpdateUserResponse {
+  User user = 1;
+}
+
+// Requête pour supprimer un utilisateur
+message DeleteUserRequest {
+  string id = 1;
+}
+
+// Réponse après suppression
+message DeleteUserResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============================================
+// SERVICE (= Les fonctions disponibles)
+// ============================================
+
+// Service de gestion des utilisateurs
+service UserService {
+  // Enregistrer un nouvel utilisateur
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Authentifier un utilisateur (login)
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+
+  // Récupérer un utilisateur par ID
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  // Récupérer un utilisateur par email
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserByEmailResponse);
+
+  // Lister les utilisateurs
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+
+  // Mettre à jour un utilisateur
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+
+  // Supprimer un utilisateur
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}

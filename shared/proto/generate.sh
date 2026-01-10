@@ -37,6 +37,7 @@ protoc \
   --go_opt=paths=source_relative \
   --go-grpc_out=. \
   --go-grpc_opt=paths=source_relative \
-  device.proto
+  device.proto \
+  user.proto
 
 echo "✅ Code generated successfully in shared/proto/"

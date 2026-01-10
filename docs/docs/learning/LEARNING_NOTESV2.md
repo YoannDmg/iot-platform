@@ -1,3 +1,9 @@
+---
+id: LEARNING_NOTESV2
+title: Notes d'apprentissage v2
+sidebar_label: Notes v2
+---
+
 # Notes de Cours - Architecture Microservices IoT
 
 > Document pédagogique évolutif - Un parcours d'apprentissage progressif sur la construction d'une plateforme IoT moderne

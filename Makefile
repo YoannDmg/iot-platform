@@ -1,4 +1,4 @@
-.PHONY: help setup generate clean build dev test
+.PHONY: help setup generate clean build dev test docs-dev docs-build docs-serve docs-clean
 
 # Variables
 SERVICES := device-manager api-gateway
@@ -37,6 +37,9 @@ help: ## Affiche l'aide
 	@echo ""
 	@echo "🗄️  DATABASE"
 	@grep -E '^(db-migrate|db-reset|db-status|sqlc-generate):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "📚 DOCUMENTATION"
+	@grep -E '^(docs-dev|docs-build|docs-serve|docs-clean):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🛠️  UTILS"
 	@grep -E '^(deps|fmt|lint):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -206,3 +209,28 @@ lint: ## Lint le code (nécessite golangci-lint)
 		echo "  → $$service"; \
 		(cd services/$$service && golangci-lint run) || exit 1; \
 	done
+
+#==================================================================================
+# DOCUMENTATION
+#==================================================================================
+
+docs-dev: ## Lance le serveur de documentation en mode dev
+	@echo "📚 Démarrage de la documentation..."
+	@echo "🌐 Disponible sur: http://localhost:3001"
+	@echo ""
+	@cd docs && npm start -- --port 3001
+
+docs-build: ## Build la documentation statique pour production
+	@echo "🔨 Build de la documentation..."
+	@cd docs && npm run build
+	@echo "✅ Documentation buildée dans docs/build/"
+
+docs-serve: docs-build ## Sert la documentation buildée (test avant deploy)
+	@echo "📖 Serving documentation buildée..."
+	@echo "🌐 Disponible sur: http://localhost:3001"
+	@cd docs && npm run serve -- --port 3001 --no-open
+
+docs-clean: ## Nettoie les fichiers de build de la documentation
+	@echo "🧹 Nettoyage de la documentation..."
+	@rm -rf docs/build docs/.docusaurus
+	@echo "✅ Documentation nettoyée"

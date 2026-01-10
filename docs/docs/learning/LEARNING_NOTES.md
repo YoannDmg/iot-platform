@@ -1,3 +1,9 @@
+---
+id: LEARNING_NOTES
+title: Notes d'apprentissage v1
+sidebar_label: Notes v1
+---
+
 # Notes d'apprentissage - Plateforme IoT
 
 > Document évolutif - Notes de cours sur la construction d'une plateforme IoT microservices

@@ -1,7 +1,7 @@
 .PHONY: help setup generate clean build dev test docs-dev docs-build docs-serve docs-clean
 
 # Variables
-SERVICES := device-manager api-gateway
+SERVICES := device-manager api-gateway user-service
 PROTO_DIR := shared/proto
 BIN_DIR := bin
 MAKEFILE := Makefile
@@ -30,10 +30,10 @@ help: ## Affiche l'aide
 	@grep -E '^(up|down|logs|status|restart):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🚀 SERVICES (DEV MODE)"
-	@grep -E '^(device-manager|api-gateway|dev):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(device-manager|api-gateway|user-service|dev):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🧪 TESTS"
-	@grep -E '^(test|test-device|test-device-integration|test-api):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(test|test-device|test-device-integration|test-api|test-user|test-auth):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🗄️  DATABASE"
 	@grep -E '^(db-migrate|db-reset|db-status|sqlc-generate):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -128,6 +128,10 @@ api-gateway: ## Lance l'API Gateway
 	@echo "Démarrage de l'API Gateway..."
 	@cd services/api-gateway && go run main.go
 
+user-service: ## Lance le User Service
+	@echo "Démarrage du User Service..."
+	@cd services/user-service && go run main.go
+
 dev: up ## Lance TOUT: infra + services (en parallèle)
 	@echo "Démarrage complet de la plateforme..."
 	@echo ""
@@ -139,19 +143,38 @@ dev: up ## Lance TOUT: infra + services (en parallèle)
 	@echo ""
 	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
 	$(MAKE) device-manager & \
-	(sleep 3 && $(MAKE) api-gateway) & \
+	(sleep 2 && $(MAKE) user-service) & \
+	(sleep 4 && $(MAKE) api-gateway) & \
 	wait
 
 #==================================================================================
 # TESTS
 #==================================================================================
 
-test: ## Lance tous les tests
+test: ## Lance tous les tests avec résumé
 	@echo "🧪 Lancement des tests..."
-	@for service in $(SERVICES); do \
-		echo "  → Testing $$service..."; \
-		cd services/$$service && go test ./... -v && cd ../..; \
-	done
+	@echo ""
+	@FAILED=0; \
+	for service in $(SERVICES); do \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo "📦 $$service"; \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		if cd services/$$service && go test ./... -count=1 2>&1 | grep -E '(PASS|FAIL|ok|FAIL)'; then \
+			cd ../..; \
+		else \
+			FAILED=$$((FAILED + 1)); \
+			cd ../..; \
+		fi; \
+		echo ""; \
+	done; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+	if [ $$FAILED -eq 0 ]; then \
+		echo "✅ Tous les tests sont passés!"; \
+	else \
+		echo "❌ $$FAILED service(s) en échec"; \
+		exit 1; \
+	fi; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 test-device: ## Tests du Device Manager uniquement
 	@cd services/device-manager && go test ./... -v
@@ -162,6 +185,20 @@ test-device-integration: ## Tests d'intégration PostgreSQL (nécessite Docker)
 
 test-api: ## Tests de l'API Gateway uniquement
 	@cd services/api-gateway && go test ./... -v
+
+test-user: ## Tests du User Service uniquement
+	@cd services/user-service && go test ./... -v
+
+test-auth: ## Tests d'authentification (JWT + middleware + user storage)
+	@echo "🔐 Tests d'authentification..."
+	@echo ""
+	@echo "→ JWT Manager & Middleware..."
+	@cd services/api-gateway && go test ./auth/... -v
+	@echo ""
+	@echo "→ User Service Storage..."
+	@cd services/user-service && go test ./storage/... -v
+	@echo ""
+	@echo "✅ Tous les tests d'authentification passés!"
 
 #==================================================================================
 # DATABASE

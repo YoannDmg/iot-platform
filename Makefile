@@ -33,7 +33,7 @@ help: ## Affiche l'aide
 	@grep -E '^(device-manager|api-gateway|user-service|dev):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🧪 TESTS"
-	@grep -E '^(test|test-device|test-device-integration|test-api|test-user|test-auth):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(test|test-unit|test-integration|test-e2e|test-all|test-security|test-device|test-user|test-api):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🗄️  DATABASE"
 	@grep -E '^(db-migrate|db-reset|db-status|sqlc-generate):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -151,54 +151,70 @@ dev: up ## Lance TOUT: infra + services (en parallèle)
 # TESTS
 #==================================================================================
 
-test: ## Lance tous les tests avec résumé
-	@echo "🧪 Lancement des tests..."
-	@echo ""
-	@FAILED=0; \
-	for service in $(SERVICES); do \
-		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-		echo "📦 $$service"; \
-		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-		if cd services/$$service && go test ./... -count=1 2>&1 | grep -E '(PASS|FAIL|ok|FAIL)'; then \
-			cd ../..; \
-		else \
-			FAILED=$$((FAILED + 1)); \
-			cd ../..; \
-		fi; \
-		echo ""; \
-	done; \
-	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-	if [ $$FAILED -eq 0 ]; then \
-		echo "✅ Tous les tests sont passés!"; \
-	else \
-		echo "❌ $$FAILED service(s) en échec"; \
-		exit 1; \
-	fi; \
-	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+.PHONY: test test-unit test-integration test-e2e test-all \
+        test-device test-user test-api test-security
 
-test-device: ## Tests du Device Manager uniquement
-	@cd services/device-manager && go test ./... -v
+# ------------------------------------------------------------------------------
+# UNIT TESTS (~5s)
+# ------------------------------------------------------------------------------
 
-test-device-integration: ## Tests d'intégration PostgreSQL (nécessite Docker)
-	@echo "🧪 Tests d'intégration Device Manager avec PostgreSQL..."
-	@cd services/device-manager && go test -tags=integration -v
+test-unit: ## Tests unitaires (parallèle, rapide)
+	@echo "🧪 Unit tests..."
+	@$(MAKE) -j3 test-device-unit test-user-unit test-api-unit
 
-test-api: ## Tests de l'API Gateway uniquement
-	@cd services/api-gateway && go test ./... -v
+test-device-unit: ## Tests unitaires Device Manager
+	@cd services/device-manager && go test -tags=unit ./... -v
 
-test-user: ## Tests du User Service uniquement
-	@cd services/user-service && go test ./... -v
+test-user-unit: ## Tests unitaires User Service
+	@cd services/user-service && go test -tags=unit ./... -v
 
-test-auth: ## Tests d'authentification (JWT + middleware + user storage)
-	@echo "🔐 Tests d'authentification..."
-	@echo ""
-	@echo "→ JWT Manager & Middleware..."
-	@cd services/api-gateway && go test ./auth/... -v
-	@echo ""
-	@echo "→ User Service Storage..."
-	@cd services/user-service && go test ./storage/... -v
-	@echo ""
-	@echo "✅ Tous les tests d'authentification passés!"
+test-api-unit: ## Tests unitaires API Gateway
+	@cd services/api-gateway && go test -tags=unit ./... -v
+
+# ------------------------------------------------------------------------------
+# INTEGRATION TESTS (~30s, nécessite DB)
+# ------------------------------------------------------------------------------
+
+test-integration: ## Tests d'intégration PostgreSQL
+	@echo "🗄️  Integration tests..."
+	@$(MAKE) test-device-db test-user-db
+
+test-device-db: ## Tests DB Device Manager
+	@cd services/device-manager && go test -tags=integration ./storage/... -v
+
+test-user-db: ## Tests DB User Service
+	@cd services/user-service && go test -tags=integration ./storage/... -v
+
+# ------------------------------------------------------------------------------
+# E2E TESTS (~1-2min, full system)
+# ------------------------------------------------------------------------------
+
+test-e2e: ## Tests end-to-end (tous les services)
+	@echo "🎯 E2E tests..."
+	@echo "⚠️  Assurez-vous que PostgreSQL tourne: make up && make db-migrate"
+	@cd tests/e2e && go test -tags=e2e -v -timeout=5m ./...
+
+# ------------------------------------------------------------------------------
+# SECURITY TESTS
+# ------------------------------------------------------------------------------
+
+test-security: ## Tests de sécurité JWT
+	@echo "🛡️  Security tests..."
+	@cd services/api-gateway && go test -tags=unit ./auth/... -v -run "Security"
+
+# ------------------------------------------------------------------------------
+# CI/CD
+# ------------------------------------------------------------------------------
+
+test-all: test-unit test-integration test-e2e ## Tous les tests (CI)
+
+# ------------------------------------------------------------------------------
+# LEGACY (compatibility)
+# ------------------------------------------------------------------------------
+
+test-device: test-device-unit ## Alias: tests Device Manager
+test-user: test-user-unit ## Alias: tests User Service
+test-api: test-api-unit ## Alias: tests API Gateway
 
 #==================================================================================
 # DATABASE

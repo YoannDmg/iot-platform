@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	pb "github.com/yourusername/iot-platform/shared/proto/device"
+	devicepb "github.com/yourusername/iot-platform/shared/proto/device"
 	"github.com/yourusername/iot-platform/services/api-gateway/graph/model"
 )
 
 // Helper functions to convert between Protobuf and GraphQL types
 
-func protoToGraphQLDevice(d *pb.Device) *model.Device {
+func protoToGraphQLDevice(d *devicepb.Device) *model.Device {
 	if d == nil {
 		return nil
 	}
@@ -35,37 +35,37 @@ func protoToGraphQLDevice(d *pb.Device) *model.Device {
 	}
 }
 
-func protoToGraphQLStatus(s pb.DeviceStatus) model.DeviceStatus {
+func protoToGraphQLStatus(s devicepb.DeviceStatus) model.DeviceStatus {
 	switch s {
-	case pb.DeviceStatus_ONLINE:
+	case devicepb.DeviceStatus_ONLINE:
 		return model.DeviceStatusOnline
-	case pb.DeviceStatus_OFFLINE:
+	case devicepb.DeviceStatus_OFFLINE:
 		return model.DeviceStatusOffline
-	case pb.DeviceStatus_ERROR:
+	case devicepb.DeviceStatus_ERROR:
 		return model.DeviceStatusError
-	case pb.DeviceStatus_MAINTENANCE:
+	case devicepb.DeviceStatus_MAINTENANCE:
 		return model.DeviceStatusMaintenance
 	default:
 		return model.DeviceStatusUnknown
 	}
 }
 
-func graphQLToProtoStatus(s *model.DeviceStatus) pb.DeviceStatus {
+func graphQLToProtoStatus(s *model.DeviceStatus) devicepb.DeviceStatus {
 	if s == nil {
-		return pb.DeviceStatus_UNKNOWN
+		return devicepb.DeviceStatus_UNKNOWN
 	}
 
 	switch *s {
 	case model.DeviceStatusOnline:
-		return pb.DeviceStatus_ONLINE
+		return devicepb.DeviceStatus_ONLINE
 	case model.DeviceStatusOffline:
-		return pb.DeviceStatus_OFFLINE
+		return devicepb.DeviceStatus_OFFLINE
 	case model.DeviceStatusError:
-		return pb.DeviceStatus_ERROR
+		return devicepb.DeviceStatus_ERROR
 	case model.DeviceStatusMaintenance:
-		return pb.DeviceStatus_MAINTENANCE
+		return devicepb.DeviceStatus_MAINTENANCE
 	default:
-		return pb.DeviceStatus_UNKNOWN
+		return devicepb.DeviceStatus_UNKNOWN
 	}
 }
 
@@ -81,7 +81,7 @@ func (r *mutationResolver) CreateDeviceImpl(ctx context.Context, input model.Cre
 		}
 	}
 
-	req := &pb.CreateDeviceRequest{
+	req := &devicepb.CreateDeviceRequest{
 		Name:     input.Name,
 		Type:     input.Type,
 		Metadata: metadata,
@@ -107,7 +107,7 @@ func (r *mutationResolver) UpdateDeviceImpl(ctx context.Context, input model.Upd
 		}
 	}
 
-	req := &pb.UpdateDeviceRequest{
+	req := &devicepb.UpdateDeviceRequest{
 		Id:       input.ID,
 		Name:     stringPtrToValue(input.Name),
 		Status:   graphQLToProtoStatus(input.Status),
@@ -123,7 +123,7 @@ func (r *mutationResolver) UpdateDeviceImpl(ctx context.Context, input model.Upd
 }
 
 func (r *mutationResolver) DeleteDeviceImpl(ctx context.Context, id string) (*model.DeleteResult, error) {
-	req := &pb.DeleteDeviceRequest{
+	req := &devicepb.DeleteDeviceRequest{
 		Id: id,
 	}
 
@@ -141,7 +141,7 @@ func (r *mutationResolver) DeleteDeviceImpl(ctx context.Context, id string) (*mo
 // Query resolvers
 
 func (r *queryResolver) DeviceImpl(ctx context.Context, id string) (*model.Device, error) {
-	req := &pb.GetDeviceRequest{
+	req := &devicepb.GetDeviceRequest{
 		Id: id,
 	}
 
@@ -165,7 +165,7 @@ func (r *queryResolver) DevicesImpl(ctx context.Context, page *int, pageSize *in
 		ps = int32(*pageSize)
 	}
 
-	req := &pb.ListDevicesRequest{
+	req := &devicepb.ListDevicesRequest{
 		Page:     p,
 		PageSize: ps,
 	}
@@ -209,7 +209,7 @@ func (r *queryResolver) DevicesImpl(ctx context.Context, page *int, pageSize *in
 
 func (r *queryResolver) StatsImpl(ctx context.Context) (*model.Stats, error) {
 	// Get all devices to compute stats
-	req := &pb.ListDevicesRequest{
+	req := &devicepb.ListDevicesRequest{
 		Page:     1,
 		PageSize: 1000, // TODO: Implement server-side stats endpoint
 	}
@@ -227,11 +227,11 @@ func (r *queryResolver) StatsImpl(ctx context.Context) (*model.Stats, error) {
 
 	for _, d := range resp.Devices {
 		switch d.Status {
-		case pb.DeviceStatus_ONLINE:
+		case devicepb.DeviceStatus_ONLINE:
 			online++
-		case pb.DeviceStatus_OFFLINE:
+		case devicepb.DeviceStatus_OFFLINE:
 			offline++
-		case pb.DeviceStatus_ERROR:
+		case devicepb.DeviceStatus_ERROR:
 			errorDevices++
 		}
 	}

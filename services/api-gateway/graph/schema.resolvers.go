@@ -15,12 +15,12 @@ import (
 
 // Register is the resolver for the register field.
 func (r *mutationResolver) Register(ctx context.Context, input model.RegisterInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: Register - register"))
+	return r.RegisterImpl(ctx, input)
 }
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: Login - login"))
+	return r.LoginImpl(ctx, input)
 }
 
 // CreateDevice is the resolver for the createDevice field.
@@ -40,7 +40,7 @@ func (r *mutationResolver) DeleteDevice(ctx context.Context, id string) (*model.
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*model.User, error) {
-	panic(fmt.Errorf("not implemented: Me - me"))
+	return r.MeImpl(ctx)
 }
 
 // Device is the resolver for the device field.

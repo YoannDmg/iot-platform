@@ -1,7 +1,9 @@
 package graph
 
 import (
-	pb "github.com/yourusername/iot-platform/shared/proto/device"
+	"github.com/yourusername/iot-platform/services/api-gateway/auth"
+	devicepb "github.com/yourusername/iot-platform/shared/proto/device"
+	userpb "github.com/yourusername/iot-platform/shared/proto/user"
 )
 
 // This file will not be regenerated automatically.
@@ -11,5 +13,7 @@ import (
 
 // Resolver holds dependencies for GraphQL resolvers.
 type Resolver struct {
-	DeviceClient pb.DeviceServiceClient
+	DeviceClient devicepb.DeviceServiceClient
+	UserClient   userpb.UserServiceClient
+	JWTManager   *auth.JWTManager
 }

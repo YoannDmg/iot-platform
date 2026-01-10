@@ -399,7 +399,7 @@ func TestPostgresStorage_ListUsersByRole(t *testing.T) {
 	ctx := context.Background()
 
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-
+	
 	// Create users with different roles
 	roles := []string{"user", "admin", "user", "device", "user"}
 	for i, role := range roles {
@@ -424,10 +424,11 @@ func TestPostgresStorage_ListUsersByRole(t *testing.T) {
 	}
 
 	if total != 3 {
-		t.Logf("Note: Found %d users with role 'user', expected 3 (may include users from concurrent tests)", total)
+		t.Errorf("Total users with role 'user' = %d, want 3", total)
 	}
-	if len(users) < 3 {
-		t.Errorf("Users count = %d, want at least 3", len(users))
+
+	if len(users) != 3 {
+		t.Errorf("Users count = %d, want 3", len(users))
 	}
 
 	// Verify all returned users have role 'user'

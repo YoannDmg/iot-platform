@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
+	CountUsersByRole(ctx context.Context, role string) (int64, error)
 	// IoT Platform - User Service Queries
 	// SQL queries with sqlc annotations for type-safe code generation
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)

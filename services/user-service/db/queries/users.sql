@@ -57,3 +57,7 @@ LIMIT $2 OFFSET $3;
 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
+
+-- name: CountUsersByRole :one
+SELECT COUNT(*) FROM users 
+WHERE role = $1;

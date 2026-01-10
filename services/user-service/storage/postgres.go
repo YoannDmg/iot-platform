@@ -210,10 +210,19 @@ func (s *PostgresStorage) ListUsers(ctx context.Context, page, pageSize int32, r
 		return nil, 0, fmt.Errorf("failed to list users: %w", err)
 	}
 
-	// Get total count
-	total, err := s.queries.CountUsers(ctx)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count users: %w", err)
+	var total int32
+	if roleFilter != "" {
+		count, err := s.queries.CountUsersByRole(ctx, roleFilter)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to count users by role: %w", err)
+		}
+		total = int32(count)
+	} else {
+		count, err := s.queries.CountUsers(ctx)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to count users: %w", err)
+		}
+		total = int32(count)
 	}
 
 	// Convert to proto

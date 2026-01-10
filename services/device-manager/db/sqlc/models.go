@@ -73,3 +73,23 @@ type Device struct {
 	// Flexible key-value storage for device-specific data
 	Metadata []byte `json:"metadata"`
 }
+
+// User accounts for authentication and authorization
+type User struct {
+	// Unique user identifier (UUID)
+	ID pgtype.UUID `json:"id"`
+	// User email address (unique, used for login)
+	Email string `json:"email"`
+	// Bcrypt hashed password (never store plain text)
+	PasswordHash string `json:"password_hash"`
+	// User full name
+	Name string `json:"name"`
+	// User role: admin, user, or device
+	Role string `json:"role"`
+	// Account creation timestamp
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// Last successful login timestamp
+	LastLogin pgtype.Timestamptz `json:"last_login"`
+	// Account active status (for soft delete)
+	IsActive bool `json:"is_active"`
+}

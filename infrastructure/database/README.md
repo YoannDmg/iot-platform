@@ -7,7 +7,7 @@ Base de données centralisée PostgreSQL pour la plateforme IoT.
 ```
 iot_platform (database)
 ├── devices          # Tables pour device-manager
-└── users (à venir)  # Tables pour user-service
+└── users            # Tables pour user-service (authentication)
 ```
 
 ## Migrations
@@ -15,6 +15,7 @@ iot_platform (database)
 Toutes les migrations SQL sont centralisées ici:
 
 - `001_create_devices_table.sql` - Création de la table devices
+- `002_create_users_table.sql` - Création de la table users (authentication)
 
 ## Usage
 

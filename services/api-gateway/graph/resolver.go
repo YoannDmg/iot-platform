@@ -1,7 +1,7 @@
 package graph
 
 import (
-	pb "github.com/yourusername/iot-platform/shared/proto"
+	pb "github.com/yourusername/iot-platform/shared/proto/device"
 )
 
 // This file will not be regenerated automatically.

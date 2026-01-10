@@ -5,7 +5,7 @@ package storage
 import (
 	"context"
 
-	pb "github.com/yourusername/iot-platform/shared/proto"
+	pb "github.com/yourusername/iot-platform/shared/proto/device"
 )
 
 // Storage defines the interface for device persistence operations.

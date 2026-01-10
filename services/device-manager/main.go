@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/yourusername/iot-platform/shared/proto"
+	pb "github.com/yourusername/iot-platform/shared/proto/device"
 	"github.com/yourusername/iot-platform/services/device-manager/storage"
 )
 

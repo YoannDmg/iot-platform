@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/yourusername/iot-platform/shared/proto"
+	pb "github.com/yourusername/iot-platform/shared/proto/device"
 )
 
 // MemoryStorage implements Storage interface using in-memory map.

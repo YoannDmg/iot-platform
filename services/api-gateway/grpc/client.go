@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/yourusername/iot-platform/shared/proto"
+	pb "github.com/yourusername/iot-platform/shared/proto/device"
 )
 
 // DeviceClient wraps the gRPC client for Device Manager service.

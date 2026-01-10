@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	pb "github.com/yourusername/iot-platform/shared/proto"
+	pb "github.com/yourusername/iot-platform/shared/proto/device"
 	"github.com/yourusername/iot-platform/services/api-gateway/graph/model"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

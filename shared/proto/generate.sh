@@ -32,12 +32,20 @@ fi
 # Generate Go code
 export PATH="$PATH:$(go env GOPATH)/bin"
 
+# Generate device proto
 protoc \
   --go_out=. \
   --go_opt=paths=source_relative \
   --go-grpc_out=. \
   --go-grpc_opt=paths=source_relative \
-  device.proto \
-  user.proto
+  device/device.proto
+
+# Generate user proto
+protoc \
+  --go_out=. \
+  --go_opt=paths=source_relative \
+  --go-grpc_out=. \
+  --go-grpc_opt=paths=source_relative \
+  user/user.proto
 
 echo "✅ Code generated successfully in shared/proto/"

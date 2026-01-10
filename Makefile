@@ -206,7 +206,8 @@ test-auth: ## Tests d'authentification (JWT + middleware + user storage)
 
 db-migrate: ## Lance les migrations PostgreSQL
 	@echo "🗄️  Lancement des migrations..."
-	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < services/device-manager/db/migrations/001_init.sql
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/001_create_devices_table.sql
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/002_create_users_table.sql
 	@echo "✅ Migrations terminées!"
 
 db-reset: ## Réinitialise la base de données

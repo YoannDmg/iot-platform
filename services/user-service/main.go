@@ -238,19 +238,40 @@ func (s *UserServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) 
 // main starts the User Service gRPC server.
 //
 // Configuration via environment variables:
+//   - USER_SERVICE_PORT: gRPC server port (default: 8083)
 //   - STORAGE_TYPE: "postgres" or "memory" (default: memory)
 //   - DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SSLMODE
 func main() {
+	ctx := context.Background()
 	port := getEnvInt("USER_SERVICE_PORT", 8083)
 
 	// Configure storage backend
 	storageType := getEnv("STORAGE_TYPE", "memory")
 	var store storage.Storage
+	var err error
 
 	switch storageType {
 	case "postgres":
-		// TODO: Implement PostgresStorage
-		log.Fatalf("❌ PostgreSQL storage not yet implemented for user-service")
+		// Build PostgreSQL DSN
+		dsn := fmt.Sprintf(
+			"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+			getEnv("DB_USER", "iot_user"),
+			getEnv("DB_PASSWORD", "iot_password"),
+			getEnv("DB_HOST", "localhost"),
+			getEnv("DB_PORT", "5432"),
+			getEnv("DB_NAME", "iot_platform"),
+			getEnv("DB_SSLMODE", "disable"),
+		)
+		store, err = storage.NewPostgresStorage(ctx, dsn)
+		if err != nil {
+			log.Fatalf("❌ Failed to connect to PostgreSQL: %v", err)
+		}
+		defer func() {
+			if err := store.Close(); err != nil {
+				log.Printf("⚠️  Error closing storage: %v", err)
+			}
+		}()
+		log.Printf("✅ Using PostgreSQL storage")
 	default:
 		store = storage.NewMemoryStorage()
 		log.Printf("✅ Using in-memory storage")

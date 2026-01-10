@@ -4,6 +4,23 @@
 # TYPES
 # ============================================
 
+# Représente un utilisateur
+type User {
+  id: ID!
+  email: String!
+  name: String!
+  role: String!
+  createdAt: Int!
+  lastLogin: Int
+  isActive: Boolean!
+}
+
+# Payload de réponse pour l'authentification
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
 # Représente un appareil IoT
 type Device {
   id: ID!
@@ -34,6 +51,20 @@ enum DeviceStatus {
 # INPUTS (pour les mutations)
 # ============================================
 
+# Input pour l'enregistrement d'un utilisateur
+input RegisterInput {
+  email: String!
+  password: String!
+  name: String!
+  role: String
+}
+
+# Input pour la connexion
+input LoginInput {
+  email: String!
+  password: String!
+}
+
 # Input pour créer un device
 input CreateDeviceInput {
   name: String!
@@ -60,6 +91,9 @@ input UpdateDeviceInput {
 # ============================================
 
 type Query {
+  # Récupérer l'utilisateur actuellement connecté
+  me: User
+
   # Récupérer un device par son ID
   device(id: ID!): Device
 
@@ -96,6 +130,12 @@ type Stats {
 # ============================================
 
 type Mutation {
+  # Enregistrer un nouvel utilisateur
+  register(input: RegisterInput!): AuthPayload!
+
+  # Se connecter
+  login(input: LoginInput!): AuthPayload!
+
   # Créer un nouveau device
   createDevice(input: CreateDeviceInput!): Device!
 

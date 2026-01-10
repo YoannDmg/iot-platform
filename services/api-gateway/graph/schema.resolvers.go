@@ -13,6 +13,16 @@ import (
 	"github.com/yourusername/iot-platform/services/api-gateway/graph/model"
 )
 
+// Register is the resolver for the register field.
+func (r *mutationResolver) Register(ctx context.Context, input model.RegisterInput) (*model.AuthPayload, error) {
+	panic(fmt.Errorf("not implemented: Register - register"))
+}
+
+// Login is the resolver for the login field.
+func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
+	panic(fmt.Errorf("not implemented: Login - login"))
+}
+
 // CreateDevice is the resolver for the createDevice field.
 func (r *mutationResolver) CreateDevice(ctx context.Context, input model.CreateDeviceInput) (*model.Device, error) {
 	return r.CreateDeviceImpl(ctx, input)
@@ -26,6 +36,11 @@ func (r *mutationResolver) UpdateDevice(ctx context.Context, input model.UpdateD
 // DeleteDevice is the resolver for the deleteDevice field.
 func (r *mutationResolver) DeleteDevice(ctx context.Context, id string) (*model.DeleteResult, error) {
 	return r.DeleteDeviceImpl(ctx, id)
+}
+
+// Me is the resolver for the me field.
+func (r *queryResolver) Me(ctx context.Context) (*model.User, error) {
+	panic(fmt.Errorf("not implemented: Me - me"))
 }
 
 // Device is the resolver for the device field.

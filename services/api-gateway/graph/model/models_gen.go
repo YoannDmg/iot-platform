@@ -9,6 +9,11 @@ import (
 	"strconv"
 )
 
+type AuthPayload struct {
+	Token string `json:"token"`
+	User  *User  `json:"user"`
+}
+
 type CreateDeviceInput struct {
 	Name     string                `json:"name"`
 	Type     string                `json:"type"`
@@ -37,6 +42,11 @@ type DeviceConnection struct {
 	PageSize int       `json:"pageSize"`
 }
 
+type LoginInput struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 type MetadataEntry struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -51,6 +61,13 @@ type Mutation struct {
 }
 
 type Query struct {
+}
+
+type RegisterInput struct {
+	Email    string  `json:"email"`
+	Password string  `json:"password"`
+	Name     string  `json:"name"`
+	Role     *string `json:"role,omitempty"`
 }
 
 type Stats struct {
@@ -68,6 +85,16 @@ type UpdateDeviceInput struct {
 	Name     *string               `json:"name,omitempty"`
 	Status   *DeviceStatus         `json:"status,omitempty"`
 	Metadata []*MetadataEntryInput `json:"metadata,omitempty"`
+}
+
+type User struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	CreatedAt int    `json:"createdAt"`
+	LastLogin *int   `json:"lastLogin,omitempty"`
+	IsActive  bool   `json:"isActive"`
 }
 
 type DeviceStatus string

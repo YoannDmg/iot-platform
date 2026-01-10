@@ -158,15 +158,19 @@ Le service démarre sur `localhost:8081` avec le backend **in-memory**.
 ### Démarrage avec PostgreSQL (production-like)
 
 ```bash
-# 1. Démarrer l'infrastructure Docker
+# 1. Copier et configurer .env (première fois seulement)
+cp .env.example .env
+# Éditer .env et mettre STORAGE_TYPE=postgres
+
+# 2. Démarrer l'infrastructure Docker
 make up
 
-# 2. Lancer les migrations
+# 3. Lancer les migrations
 make db-migrate
 
-# 3. Lancer le service avec PostgreSQL
+# 4. Lancer le service (les variables .env sont chargées automatiquement)
 cd services/device-manager
-STORAGE_TYPE=postgres go run main.go
+go run main.go
 ```
 
 ### Via Makefile (recommandé)
@@ -174,11 +178,12 @@ STORAGE_TYPE=postgres go run main.go
 ```bash
 # Depuis la racine du projet
 
+# Le Makefile charge automatiquement .env
 # Démarrer toute l'infrastructure + services
 make dev
 
 # Ou services individuels
-make device-manager      # Memory storage
+make device-manager      # Utilise STORAGE_TYPE du .env
 make db-migrate         # Migrations PostgreSQL
 ```
 
@@ -196,35 +201,66 @@ make db-migrate         # Migrations PostgreSQL
 | `DB_PASSWORD` | Mot de passe PostgreSQL | `iot_password` | **SECRET** |
 | `DB_SSLMODE` | Mode SSL PostgreSQL | `disable` | `require` |
 
-### Exemple de configuration
+### Fichiers de configuration
 
-**Développement (Memory):**
+Le projet utilise un fichier `.env` pour centraliser la configuration:
+
+| Fichier | Usage | Versionné |
+|---------|-------|-----------|
+| `.env.example` | Template documenté pour tous les environnements | ✅ Oui |
+| `.env` | Configuration locale (copie de .env.example) | ❌ Non (.gitignore) |
+
+**Setup initial:**
 ```bash
-# Aucune configuration nécessaire
+# Copier le template
+cp .env.example .env
+
+# Éditer selon votre environnement (dev/staging/prod)
+nano .env
+```
+
+### Configuration par environnement
+
+**Développement local (Memory - rapide):**
+```bash
+# Dans .env
+STORAGE_TYPE=memory
+
+# Lancer
 go run main.go
 ```
 
-**Développement (PostgreSQL local):**
+**Développement local (PostgreSQL - réaliste):**
 ```bash
-export STORAGE_TYPE=postgres
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_NAME=iot_platform
-export DB_USER=iot_user
-export DB_PASSWORD=iot_password
-export DB_SSLMODE=disable
+# Dans .env
+STORAGE_TYPE=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=iot_platform
+DB_USER=iot_user
+DB_PASSWORD=iot_password
+DB_SSLMODE=disable
+
+# Lancer infrastructure + migrations
+make up && make db-migrate
+
+# Lancer le service (charge .env automatiquement via Makefile)
 go run main.go
 ```
 
 **Production:**
 ```bash
-export STORAGE_TYPE=postgres
-export DB_HOST=postgres.production.example.com
-export DB_PORT=5432
-export DB_NAME=iot_platform_prod
-export DB_USER=iot_app
-export DB_PASSWORD="${DB_PASSWORD_SECRET}"  # Depuis secret manager
-export DB_SSLMODE=require
+# 1. Copier le template
+cp .env.example .env
+
+# 2. Configurer avec valeurs production (depuis secret manager)
+# STORAGE_TYPE=postgres
+# DB_HOST=<production-host>
+# DB_SSLMODE=require
+# JWT_SECRET=<from-vault>
+# etc.
+
+# 3. Lancer le service
 ./device-manager
 ```
 

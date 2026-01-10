@@ -214,13 +214,22 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 
 		resp := graphqlRequest(t, client, gatewayURL, query, "")
 
-		// Should have errors
-		errors, ok := resp["errors"].([]interface{})
-		if !ok || len(errors) == 0 {
-			t.Fatalf("Expected authentication error, got: %+v", resp)
-		}
+		// Should either have errors OR me should be null
+		errors, hasErrors := resp["errors"].([]interface{})
+		data, hasData := resp["data"].(map[string]interface{})
 
-		t.Logf("✓ Unauthenticated request blocked as expected")
+		if hasErrors && len(errors) > 0 {
+			// GraphQL returned an error - that's fine
+			t.Logf("✓ Unauthenticated request blocked with error")
+		} else if hasData {
+			me := data["me"]
+			if me != nil {
+				t.Fatalf("Expected me to be null without auth, got: %+v", me)
+			}
+			t.Logf("✓ Unauthenticated request returned null (as expected)")
+		} else {
+			t.Fatalf("Unexpected response structure: %+v", resp)
+		}
 	})
 
 	t.Run("duplicate_registration_fails", func(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -162,7 +163,7 @@ func (s *DeviceServer) DeleteDevice(ctx context.Context, req *pb.DeleteDeviceReq
 //   - Graceful shutdown
 func main() {
 	ctx := context.Background()
-	port := 8081
+	port := getEnvInt("DEVICE_MANAGER_PORT", 8081)
 
 	// Configure storage backend
 	storageType := getEnv("STORAGE_TYPE", "memory")
@@ -226,6 +227,16 @@ func main() {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+// getEnvInt retrieves an environment variable as an integer or returns a default value.
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
 	}
 	return defaultValue
 }

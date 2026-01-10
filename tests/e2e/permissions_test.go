@@ -22,8 +22,9 @@ func TestE2E_RBACPermissions(t *testing.T) {
 	t.Run("setup_regular_user", func(t *testing.T) {
 		registerMutation := map[string]interface{}{
 			"query": `
-				mutation Register($email: String!, $password: String!, $name: String!) {
-					register(email: $email, password: $password, name: $name) {
+				mutation Register($input: RegisterInput!) {
+					register(input: $input) {
+						token
 						user {
 							id
 							role
@@ -32,9 +33,11 @@ func TestE2E_RBACPermissions(t *testing.T) {
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "regular-user@example.com",
-				"password": "UserPassword123!",
-				"name":     "Regular User",
+				"input": map[string]interface{}{
+					"email":    "regular-user@example.com",
+					"password": "UserPassword123!",
+					"name":     "Regular User",
+				},
 			},
 		}
 
@@ -50,15 +53,17 @@ func TestE2E_RBACPermissions(t *testing.T) {
 		// Login
 		loginMutation := map[string]interface{}{
 			"query": `
-				mutation Login($email: String!, $password: String!) {
-					login(email: $email, password: $password) {
+				mutation Login($input: LoginInput!) {
+					login(input: $input) {
 						token
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "regular-user@example.com",
-				"password": "UserPassword123!",
+				"input": map[string]interface{}{
+					"email":    "regular-user@example.com",
+					"password": "UserPassword123!",
+				},
 			},
 		}
 
@@ -74,8 +79,9 @@ func TestE2E_RBACPermissions(t *testing.T) {
 	t.Run("setup_admin_user", func(t *testing.T) {
 		registerMutation := map[string]interface{}{
 			"query": `
-				mutation Register($email: String!, $password: String!, $name: String!, $role: String) {
-					register(email: $email, password: $password, name: $name, role: $role) {
+				mutation Register($input: RegisterInput!) {
+					register(input: $input) {
+						token
 						user {
 							id
 							role
@@ -84,10 +90,12 @@ func TestE2E_RBACPermissions(t *testing.T) {
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "admin-user@example.com",
-				"password": "AdminPassword123!",
-				"name":     "Admin User",
-				"role":     "admin",
+				"input": map[string]interface{}{
+					"email":    "admin-user@example.com",
+					"password": "AdminPassword123!",
+					"name":     "Admin User",
+					"role":     "admin",
+				},
 			},
 		}
 
@@ -103,15 +111,17 @@ func TestE2E_RBACPermissions(t *testing.T) {
 		// Login
 		loginMutation := map[string]interface{}{
 			"query": `
-				mutation Login($email: String!, $password: String!) {
-					login(email: $email, password: $password) {
+				mutation Login($input: LoginInput!) {
+					login(input: $input) {
 						token
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "admin-user@example.com",
-				"password": "AdminPassword123!",
+				"input": map[string]interface{}{
+					"email":    "admin-user@example.com",
+					"password": "AdminPassword123!",
+				},
 			},
 		}
 
@@ -127,16 +137,18 @@ func TestE2E_RBACPermissions(t *testing.T) {
 	t.Run("user_creates_device", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation CreateDevice($name: String!, $type: String!) {
-					createDevice(name: $name, type: $type) {
+				mutation CreateDevice($input: CreateDeviceInput!) {
+					createDevice(input: $input) {
 						id
 						name
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"name": "User's Device",
-				"type": "sensor",
+				"input": map[string]interface{}{
+					"name": "User's Device",
+					"type": "sensor",
+				},
 			},
 		}
 
@@ -191,16 +203,18 @@ func TestE2E_RBACPermissions(t *testing.T) {
 	t.Run("user_updates_own_device", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation UpdateDevice($id: ID!, $name: String!) {
-					updateDevice(id: $id, name: $name) {
+				mutation UpdateDevice($input: UpdateDeviceInput!) {
+					updateDevice(input: $input) {
 						id
 						name
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"id":   userDeviceID,
-				"name": "User's Updated Device",
+				"input": map[string]interface{}{
+					"id":   userDeviceID,
+					"name": "User's Updated Device",
+				},
 			},
 		}
 
@@ -261,16 +275,18 @@ func TestE2E_RBACPermissions(t *testing.T) {
 	t.Run("admin_updates_users_device", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation UpdateDevice($id: ID!, $name: String!) {
-					updateDevice(id: $id, name: $name) {
+				mutation UpdateDevice($input: UpdateDeviceInput!) {
+					updateDevice(input: $input) {
 						id
 						name
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"id":   userDeviceID,
-				"name": "Admin Updated This Device",
+				"input": map[string]interface{}{
+					"id":   userDeviceID,
+					"name": "Admin Updated This Device",
+				},
 			},
 		}
 
@@ -356,32 +372,37 @@ func TestE2E_AdminUserManagement(t *testing.T) {
 	t.Run("setup_admin", func(t *testing.T) {
 		registerMutation := map[string]interface{}{
 			"query": `
-				mutation Register($email: String!, $password: String!, $name: String!, $role: String) {
-					register(email: $email, password: $password, name: $name, role: $role) {
+				mutation Register($input: RegisterInput!) {
+					register(input: $input) {
+						token
 						user { id }
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "user-admin@example.com",
-				"password": "AdminPass123!",
-				"name":     "User Admin",
-				"role":     "admin",
+				"input": map[string]interface{}{
+					"email":    "user-admin@example.com",
+					"password": "AdminPass123!",
+					"name":     "User Admin",
+					"role":     "admin",
+				},
 			},
 		}
 		graphqlRequest(t, client, gatewayURL, registerMutation, "")
 
 		loginMutation := map[string]interface{}{
 			"query": `
-				mutation Login($email: String!, $password: String!) {
-					login(email: $email, password: $password) {
+				mutation Login($input: LoginInput!) {
+					login(input: $input) {
 						token
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "user-admin@example.com",
-				"password": "AdminPass123!",
+				"input": map[string]interface{}{
+					"email":    "user-admin@example.com",
+					"password": "AdminPass123!",
+				},
 			},
 		}
 

@@ -22,16 +22,19 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 		// Register
 		registerMutation := map[string]interface{}{
 			"query": `
-				mutation Register($email: String!, $password: String!, $name: String!) {
-					register(email: $email, password: $password, name: $name) {
+				mutation Register($input: RegisterInput!) {
+					register(input: $input) {
+						token
 						user { id }
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "device-test@example.com",
-				"password": "Password123!",
-				"name":     "Device Test User",
+				"input": map[string]interface{}{
+					"email":    "device-test@example.com",
+					"password": "Password123!",
+					"name":     "Device Test User",
+				},
 			},
 		}
 		graphqlRequest(t, client, gatewayURL, registerMutation, "")
@@ -39,15 +42,17 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 		// Login
 		loginMutation := map[string]interface{}{
 			"query": `
-				mutation Login($email: String!, $password: String!) {
-					login(email: $email, password: $password) {
+				mutation Login($input: LoginInput!) {
+					login(input: $input) {
 						token
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    "device-test@example.com",
-				"password": "Password123!",
+				"input": map[string]interface{}{
+					"email":    "device-test@example.com",
+					"password": "Password123!",
+				},
 			},
 		}
 
@@ -62,23 +67,28 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 	t.Run("create_device", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation CreateDevice($name: String!, $type: String!, $metadata: Map) {
-					createDevice(name: $name, type: $type, metadata: $metadata) {
+				mutation CreateDevice($input: CreateDeviceInput!) {
+					createDevice(input: $input) {
 						id
 						name
 						type
 						status
-						metadata
+						metadata {
+							key
+							value
+						}
 						createdAt
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"name": "E2E Test Sensor",
-				"type": "temperature",
-				"metadata": map[string]interface{}{
-					"location": "test-lab",
-					"floor":    "3",
+				"input": map[string]interface{}{
+					"name": "E2E Test Sensor",
+					"type": "temperature",
+					"metadata": []map[string]interface{}{
+						{"key": "location", "value": "test-lab"},
+						{"key": "floor", "value": "3"},
+					},
 				},
 			},
 		}
@@ -113,12 +123,16 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 		}
 
 		// Verify metadata
-		metadata, ok := device["metadata"].(map[string]interface{})
+		metadata, ok := device["metadata"].([]interface{})
 		if !ok {
-			t.Errorf("Metadata not present")
+			t.Errorf("Metadata not present or wrong type")
+		} else if len(metadata) < 2 {
+			t.Errorf("Expected at least 2 metadata entries, got %d", len(metadata))
 		} else {
-			if metadata["location"] != "test-lab" {
-				t.Errorf("Metadata[location] = %v, want 'test-lab'", metadata["location"])
+			// Check first metadata entry
+			entry := metadata[0].(map[string]interface{})
+			if entry["key"] != "location" || entry["value"] != "test-lab" {
+				t.Errorf("Metadata[0] = %v, want {key: location, value: test-lab}", entry)
 			}
 		}
 
@@ -210,8 +224,8 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 	t.Run("update_device", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation UpdateDevice($id: ID!, $name: String, $status: String) {
-					updateDevice(id: $id, name: $name, status: $status) {
+				mutation UpdateDevice($input: UpdateDeviceInput!) {
+					updateDevice(input: $input) {
 						id
 						name
 						status
@@ -219,9 +233,11 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 				}
 			`,
 			"variables": map[string]interface{}{
-				"id":     deviceID,
-				"name":   "Updated E2E Sensor",
-				"status": "MAINTENANCE",
+				"input": map[string]interface{}{
+					"id":     deviceID,
+					"name":   "Updated E2E Sensor",
+					"status": "MAINTENANCE",
+				},
 			},
 		}
 

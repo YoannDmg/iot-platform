@@ -26,8 +26,9 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 		// GraphQL mutation for registration
 		mutation := map[string]interface{}{
 			"query": `
-				mutation Register($email: String!, $password: String!, $name: String!) {
-					register(email: $email, password: $password, name: $name) {
+				mutation Register($input: RegisterInput!) {
+					register(input: $input) {
+						token
 						user {
 							id
 							email
@@ -35,14 +36,15 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 							role
 							isActive
 						}
-						message
 					}
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    testEmail,
-				"password": testPassword,
-				"name":     testName,
+				"input": map[string]interface{}{
+					"email":    testEmail,
+					"password": testPassword,
+					"name":     testName,
+				},
 			},
 		}
 
@@ -92,8 +94,8 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 	t.Run("login_with_valid_credentials", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation Login($email: String!, $password: String!) {
-					login(email: $email, password: $password) {
+				mutation Login($input: LoginInput!) {
+					login(input: $input) {
 						token
 						user {
 							id
@@ -105,8 +107,10 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    testEmail,
-				"password": testPassword,
+				"input": map[string]interface{}{
+					"email":    testEmail,
+					"password": testPassword,
+				},
 			},
 		}
 
@@ -135,8 +139,8 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 	t.Run("login_with_invalid_password", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation Login($email: String!, $password: String!) {
-					login(email: $email, password: $password) {
+				mutation Login($input: LoginInput!) {
+					login(input: $input) {
 						token
 						user {
 							id
@@ -145,8 +149,10 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    testEmail,
-				"password": "WrongPassword123!",
+				"input": map[string]interface{}{
+					"email":    testEmail,
+					"password": "WrongPassword123!",
+				},
 			},
 		}
 
@@ -220,8 +226,9 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 	t.Run("duplicate_registration_fails", func(t *testing.T) {
 		mutation := map[string]interface{}{
 			"query": `
-				mutation Register($email: String!, $password: String!, $name: String!) {
-					register(email: $email, password: $password, name: $name) {
+				mutation Register($input: RegisterInput!) {
+					register(input: $input) {
+						token
 						user {
 							id
 						}
@@ -229,9 +236,11 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 				}
 			`,
 			"variables": map[string]interface{}{
-				"email":    testEmail, // Same email
-				"password": "AnotherPassword123!",
-				"name":     "Another User",
+				"input": map[string]interface{}{
+					"email":    testEmail, // Same email
+					"password": "AnotherPassword123!",
+					"name":     "Another User",
+				},
 			},
 		}
 

@@ -53,6 +53,7 @@ temp/
 # Compiled binaries
 services/device-manager/device-manager
 services/api-gateway/api-gateway
+services/user-service/user-service
 bin/
 
 # Documentation

@@ -15,26 +15,28 @@ Plateforme IoT complète pour la gestion et le monitoring d'appareils connectés
 
 ### Services principaux
 
-- **API Gateway** (Go) - Point d'entrée unique, authentification, rate limiting
-- **Device Manager** (Go) - Gestion du cycle de vie des devices IoT
-- **Data Collector** (Rust) - Collecte et traitement temps réel des données
-- **Time Series DB** - Stockage des métriques (TimescaleDB)
-- **Message Broker** - Communication MQTT pour les devices
-- **Web Dashboard** (React) - Interface web de monitoring
-- **Mobile App** (Flutter) - Application mobile
+- **API Gateway** (Go) - Point d'entrée unique GraphQL, authentification JWT
+- **Device Manager** (Go) - Gestion du cycle de vie des devices IoT (gRPC)
+- **User Service** (Go) - Gestion des utilisateurs et authentification
+- **Web Dashboard** (React) - Interface web de monitoring temps réel ✅
+- **IoT Clients** - Clients pour collecte de métriques (Mac, Linux, Windows)
 
 ### Stack technique
 
 #### Backend
-- Go 1.21+ (API Gateway, Device Manager)
-- Rust 1.75+ (Data Collector, Edge Processing)
-- MQTT Broker (Mosquitto)
-- Redis (Cache & Pub/Sub)
-- PostgreSQL 16 + TimescaleDB
+- Go 1.21+ (API Gateway, Device Manager, User Service)
+- gRPC (Communication inter-services)
+- GraphQL (API publique via gqlgen)
+- Redis (Cache & Session)
+- PostgreSQL 16 (Stockage principal)
+- JWT (Authentification)
 
 #### Frontend
-- React 18 avec TypeScript
-- Flutter 3.x
+- React 19 + TypeScript
+- Vite 7 (Build tool)
+- TailwindCSS 4 (Styling)
+- TanStack Query (Data fetching)
+- Recharts (Visualisation)
 
 #### Infrastructure
 - Docker & Docker Compose
@@ -76,23 +78,35 @@ iot-platform/
 
 - Docker Desktop
 - Go 1.21+
+- Node.js 20+
 - Protocol Buffers Compiler : `brew install protobuf`
 
 ### Installation rapide
 
 ```bash
-# 1. Installer les outils et dépendances
+# 1. Installer les outils et dépendances (Go + Node)
 make setup
 
 # 2. Générer le code (Protocol Buffers + GraphQL)
 make generate
 
-# 3. Démarrer l'infrastructure (PostgreSQL, Redis, MQTT, etc.)
-make start
+# 3. Démarrer l'infrastructure (PostgreSQL, Redis)
+make up
 
-# 4. Lancer les services (dans des terminaux séparés)
-make device-manager    # Terminal 1 - gRPC sur port 8081
-make api-gateway       # Terminal 2 - GraphQL sur port 8080
+# 4. Appliquer les migrations de base de données
+make db-migrate
+
+# 5. Lancer TOUTE la plateforme (infra + backend + dashboard)
+make dev-full
+```
+
+**Ou lancer les services individuellement :**
+
+```bash
+make device-manager    # gRPC sur port 8081
+make user-service      # gRPC sur port 8082
+make api-gateway       # GraphQL sur port 8080
+make dashboard         # React sur port 5173
 ```
 
 ### Tester l'API
@@ -126,12 +140,13 @@ terraform apply
 kubectl apply -f infrastructure/kubernetes/
 ```
 
-## 📊 Monitoring
+## 📊 URLs de développement
 
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000
-- API Gateway: http://localhost:8080
-- Web Dashboard: http://localhost:3001
+- **Dashboard Web**: http://localhost:5173 (React + Vite)
+- **API Gateway (GraphQL)**: http://localhost:8080 (GraphQL Playground)
+- **Documentation**: http://localhost:3001 (Docusaurus)
+- **PostgreSQL**: localhost:5432
+- **Redis**: localhost:6379
 
 ## 🔒 Sécurité
 

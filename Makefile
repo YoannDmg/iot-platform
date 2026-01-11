@@ -4,6 +4,7 @@
 SERVICES := device-manager api-gateway user-service
 PROTO_DIR := shared/proto
 BIN_DIR := bin
+DASHBOARD_DIR := web/dashboard
 MAKEFILE := Makefile
 
 # Load .env file if it exists
@@ -30,7 +31,7 @@ help: ## Affiche l'aide
 	@grep -E '^(up|down|logs|status|restart):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🚀 SERVICES (DEV MODE)"
-	@grep -E '^(device-manager|api-gateway|user-service|dev):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(device-manager|api-gateway|user-service|dashboard|dev|dev-full):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🧪 TESTS"
 	@grep -E '^(test|test-unit|test-integration|test-e2e|test-all|test-security|test-device|test-user|test-api):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -41,6 +42,9 @@ help: ## Affiche l'aide
 	@echo "📚 DOCUMENTATION"
 	@grep -E '^(docs-dev|docs-build|docs-serve|docs-clean):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
+	@echo "🌐 WEB DASHBOARD"
+	@grep -E '^(dashboard-install|dashboard-dev|dashboard-build|dashboard-preview|dashboard-clean|dashboard-lint):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
 	@echo "🛠️  UTILS"
 	@grep -E '^(deps|fmt|lint):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
@@ -49,12 +53,15 @@ help: ## Affiche l'aide
 # SETUP & GÉNÉRATION
 #==================================================================================
 
-setup: ## Installe tous les outils nécessaires
+setup: ## Installe tous les outils nécessaires (Go + Node)
 	@echo "📦 Installation des outils..."
 	@command -v protoc >/dev/null 2>&1 || (echo "❌ protoc non installé. Installez-le avec: brew install protobuf" && exit 1)
+	@command -v node >/dev/null 2>&1 || (echo "❌ Node.js non installé. Installez-le avec: brew install node" && exit 1)
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	go install github.com/99designs/gqlgen@latest
+	@echo "📦 Installation des dépendances du dashboard..."
+	@cd $(DASHBOARD_DIR) && npm install
 	@echo "✅ Setup terminé!"
 
 generate: generate-proto generate-graphql ## Génère tout le code (proto + GraphQL)
@@ -87,6 +94,7 @@ clean: ## Supprime les binaires et fichiers temporaires
 	@rm -rf $(BIN_DIR)/
 	@rm -f services/device-manager/device-manager
 	@rm -f services/api-gateway/api-gateway
+	@$(MAKE) dashboard-clean
 	@echo "✅ Nettoyage terminé!"
 
 #==================================================================================
@@ -132,7 +140,12 @@ user-service: ## Lance le User Service
 	@echo "Démarrage du User Service..."
 	@cd services/user-service && go run main.go
 
-dev: up ## Lance TOUT: infra + services (en parallèle)
+dashboard: ## Lance le Dashboard (dev mode avec HMR)
+	@echo "🌐 Démarrage du Dashboard..."
+	@echo "📍 URL: http://localhost:5173"
+	@cd $(DASHBOARD_DIR) && npm run dev
+
+dev: up ## Lance infra + services backend (sans dashboard)
 	@echo "Démarrage complet de la plateforme..."
 	@echo ""
 	@echo "⏳ Attente de l'infrastructure Docker..."
@@ -145,6 +158,26 @@ dev: up ## Lance TOUT: infra + services (en parallèle)
 	$(MAKE) device-manager & \
 	(sleep 2 && $(MAKE) user-service) & \
 	(sleep 4 && $(MAKE) api-gateway) & \
+	wait
+
+dev-full: up ## Lance TOUT: infra + services + dashboard
+	@echo "🚀 Démarrage COMPLET de la plateforme..."
+	@echo ""
+	@echo "⏳ Attente de l'infrastructure Docker..."
+	@sleep 5
+	@echo "✅ Infrastructure prête!"
+	@echo ""
+	@echo "📍 Services:"
+	@echo "  - API Gateway: http://localhost:8080"
+	@echo "  - Dashboard:   http://localhost:5173"
+	@echo ""
+	@echo "⚠️  Utilise Ctrl+C pour arrêter tous les services."
+	@echo ""
+	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
+	$(MAKE) device-manager & \
+	(sleep 2 && $(MAKE) user-service) & \
+	(sleep 4 && $(MAKE) api-gateway) & \
+	(sleep 6 && $(MAKE) dashboard) & \
 	wait
 
 #==================================================================================
@@ -289,3 +322,36 @@ docs-clean: ## Nettoie les fichiers de build de la documentation
 	@echo "🧹 Nettoyage de la documentation..."
 	@rm -rf docs/build docs/.docusaurus
 	@echo "✅ Documentation nettoyée"
+
+#==================================================================================
+# WEB DASHBOARD
+#==================================================================================
+
+dashboard-install: ## Installe les dépendances du dashboard
+	@echo "📦 Installation des dépendances du dashboard..."
+	@cd $(DASHBOARD_DIR) && npm install
+	@echo "✅ Dépendances installées!"
+
+dashboard-dev: ## Lance le dashboard en mode développement
+	@echo "🌐 Démarrage du dashboard..."
+	@echo "📍 URL: http://localhost:5173"
+	@cd $(DASHBOARD_DIR) && npm run dev
+
+dashboard-build: ## Build le dashboard pour production
+	@echo "🔨 Build du dashboard..."
+	@cd $(DASHBOARD_DIR) && npm run build
+	@echo "✅ Dashboard buildé dans $(DASHBOARD_DIR)/dist/"
+
+dashboard-preview: dashboard-build ## Preview du build de production
+	@echo "👀 Preview du dashboard..."
+	@cd $(DASHBOARD_DIR) && npm run preview
+
+dashboard-clean: ## Nettoie les fichiers de build du dashboard
+	@echo "🧹 Nettoyage du dashboard..."
+	@rm -rf $(DASHBOARD_DIR)/dist $(DASHBOARD_DIR)/node_modules
+	@echo "✅ Dashboard nettoyé"
+
+dashboard-lint: ## Lint le code du dashboard
+	@echo "🔍 Linting du dashboard..."
+	@cd $(DASHBOARD_DIR) && npm run lint
+	@echo "✅ Lint terminé!"

@@ -101,9 +101,26 @@ func main() {
 		),
 	)
 
-	// Wrap GraphQL handler with JWT middleware
+	// CORS middleware
+	corsMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+			// Handle preflight requests
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	// Wrap GraphQL handler with JWT middleware and CORS
 	authMiddleware := auth.Middleware(jwtManager)
-	graphqlHandler := authMiddleware(srv)
+	graphqlHandler := corsMiddleware(authMiddleware(srv))
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -115,7 +132,7 @@ func main() {
 	// GraphQL Playground - disable in production
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 
-	// GraphQL API endpoint with auth middleware
+	// GraphQL API endpoint with auth middleware and CORS
 	http.Handle("/query", graphqlHandler)
 
 	log.Println("=====================================")

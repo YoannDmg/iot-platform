@@ -4,7 +4,7 @@
 SERVICES := device-manager api-gateway user-service
 PROTO_DIR := shared/proto
 BIN_DIR := bin
-DASHBOARD_DIR := web/dashboard
+DASHBOARD_DIR := frontends/dashboard
 MAKEFILE := Makefile
 
 # Load .env file if it exists

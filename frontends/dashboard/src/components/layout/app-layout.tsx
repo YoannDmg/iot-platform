@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider } from '@/lib/sidebar-context';
 import { AppSidebar } from './app-sidebar';
 import { AppHeader } from './app-header';
 

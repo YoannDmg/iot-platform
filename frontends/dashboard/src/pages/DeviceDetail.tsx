@@ -48,12 +48,12 @@ export function DeviceDetail() {
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div>
-        <Button variant="ghost" asChild className="mb-4">
-          <Link to="/devices">
+        <Link to="/devices" className="mb-4 inline-flex">
+          <Button variant="ghost">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to devices
-          </Link>
-        </Button>
+          </Button>
+        </Link>
 
         <Card className="p-6 mb-6">
           <div className="flex items-start justify-between">

@@ -37,12 +37,10 @@ export function AppHeader() {
         </Button>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Avatar>
-                <AvatarFallback>AD</AvatarFallback>
-              </Avatar>
-            </Button>
+          <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full outline-none">
+            <Avatar>
+              <AvatarFallback>AD</AvatarFallback>
+            </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>

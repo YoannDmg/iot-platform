@@ -1,33 +1,27 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AppLayout } from './components/layout/app-layout';
+import { MantineProvider, createTheme } from '@mantine/core';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
-import { DeviceList } from './pages/DeviceList';
-import { DeviceDetail } from './pages/DeviceDetail';
+import { Devices } from './pages/Devices';
+import '@mantine/core/styles.css';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
+const theme = createTheme({
+  primaryColor: 'blue',
+  defaultRadius: 'md',
 });
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <MantineProvider theme={theme} defaultColorScheme="dark">
       <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/devices" element={<DeviceList />} />
-            <Route path="/device/:id" element={<DeviceDetail />} />
-          </Route>
-        </Routes>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/devices" element={<Devices />} />
+          </Routes>
+        </Layout>
       </BrowserRouter>
-    </QueryClientProvider>
+    </MantineProvider>
   );
 }
 

@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
 
   // Notes d'apprentissage (séparées)
   learningSidebar: [
+    'learning/git-commit-convention',
     'learning/LEARNING_NOTES',
     'learning/LEARNING_NOTESV2',
   ],

@@ -1,20 +1,24 @@
+import { Badge } from '@/components/ui/badge';
+
 interface DeviceStatusProps {
   status: 'UNKNOWN' | 'ONLINE' | 'OFFLINE' | 'ERROR' | 'MAINTENANCE';
 }
 
 export function DeviceStatus({ status }: DeviceStatusProps) {
-  const statusColors = {
-    UNKNOWN: 'bg-gray-400',
-    ONLINE: 'bg-green-500',
-    OFFLINE: 'bg-red-500',
-    ERROR: 'bg-orange-500',
-    MAINTENANCE: 'bg-blue-500',
+  const statusConfig = {
+    UNKNOWN: { color: 'bg-gray-400', variant: 'secondary' as const },
+    ONLINE: { color: 'bg-green-500', variant: 'default' as const },
+    OFFLINE: { color: 'bg-gray-500', variant: 'secondary' as const },
+    ERROR: { color: 'bg-red-500', variant: 'destructive' as const },
+    MAINTENANCE: { color: 'bg-blue-500', variant: 'default' as const },
   };
 
+  const config = statusConfig[status];
+
   return (
-    <div className="flex items-center gap-2">
-      <div className={`w-3 h-3 rounded-full ${statusColors[status]}`} />
-      <span className="text-sm font-medium">{status}</span>
-    </div>
+    <Badge variant={config.variant} className="gap-1.5">
+      <div className={`w-2 h-2 rounded-full ${config.color}`} />
+      {status}
+    </Badge>
   );
 }

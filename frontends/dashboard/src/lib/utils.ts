@@ -1,4 +1,10 @@
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 import type { DeviceMetadata, DeviceMetrics } from '../types/device';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
 
 export function parseMetadata(metadata: DeviceMetadata[]): DeviceMetrics {
   const metrics: DeviceMetrics = {};

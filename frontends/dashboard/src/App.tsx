@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { DashboardLayout } from "@/layouts/dashboard-layout"
 import { HomePage } from "@/features/home"
-import { DevicesPage, DeviceDetailPage } from "@/features/devices"
+import { DevicesPage, DeviceDetailPage, AddDevicePage } from "@/features/devices"
 
 export function App() {
   return (
@@ -10,6 +10,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/devices/new" element={<AddDevicePage />} />
           <Route path="/devices/:id" element={<DeviceDetailPage />} />
         </Routes>
       </DashboardLayout>

@@ -1,4 +1,5 @@
 export { DevicesPage } from "./pages/devices-page"
 export { DeviceDetailPage } from "./pages/device-detail-page"
+export { AddDevicePage } from "./pages/add-device-page"
 export * from "./components"
 export * from "./types"

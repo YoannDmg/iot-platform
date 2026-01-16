@@ -34,7 +34,7 @@ const data = {
       items: [
         { title: "All Devices", url: "/devices" },
         { title: "Groups", url: "#" },
-        { title: "Add Device", url: "#" },
+        { title: "Add Device", url: "/devices/new" },
       ],
     },
     {

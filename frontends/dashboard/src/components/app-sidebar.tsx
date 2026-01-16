@@ -7,6 +7,7 @@ import {
 
 import { NavMain } from "@/components/nav-main"
 import { SidebarLogo } from "@/components/sidebar-logo"
+import { ThemeToggle } from "@/components/theme-toggle"
 import {
   Sidebar,
   SidebarContent,
@@ -66,6 +67,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
+        <ThemeToggle className="mt-auto" />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

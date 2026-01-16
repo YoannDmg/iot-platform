@@ -19,20 +19,20 @@ const data = {
   navMain: [
     {
       title: "Home",
-      url: "#",
+      url: "/",
       icon: IconHome,
       isActive: true,
       items: [
-        { title: "Overview", url: "#" },
+        { title: "Overview", url: "/" },
         { title: "Analytics", url: "#" },
       ],
     },
     {
       title: "Devices",
-      url: "#",
+      url: "/devices",
       icon: IconDevices,
       items: [
-        { title: "All Devices", url: "#" },
+        { title: "All Devices", url: "/devices" },
         { title: "Groups", url: "#" },
         { title: "Add Device", url: "#" },
       ],

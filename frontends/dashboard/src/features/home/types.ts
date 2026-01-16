@@ -1,16 +1,7 @@
-// Types pour la page Overview
+// Types spécifiques à la page Overview
+// Les types Device et DeviceStatus sont dans shared/types
 
-export type DeviceStatus = "ONLINE" | "OFFLINE" | "ERROR" | "MAINTENANCE" | "UNKNOWN"
-
-export interface Device {
-  id: string
-  name: string
-  type: string
-  status: DeviceStatus
-  createdAt: number
-  lastSeen: number
-  metadata: Record<string, string>
-}
+export { type Device, type DeviceStatus } from "@/shared/types"
 
 export interface Stats {
   totalDevices: number
@@ -21,9 +12,12 @@ export interface Stats {
 
 export interface ActivityItem {
   id: string
-  device: Device
+  deviceId: string
+  deviceName: string
+  deviceType: string
+  status: import("@/shared/types").DeviceStatus
   action: string
-  timestamp: number
+  timestamp: string
 }
 
 export interface Alert {
@@ -32,5 +26,5 @@ export interface Alert {
   deviceName: string
   type: "warning" | "error" | "info"
   message: string
-  timestamp: number
+  timestamp: string
 }

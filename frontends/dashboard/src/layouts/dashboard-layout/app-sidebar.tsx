@@ -5,9 +5,9 @@ import {
   IconBook,
 } from "@tabler/icons-react"
 
-import { NavMain } from "@/components/nav-main"
-import { SidebarLogo } from "@/components/sidebar-logo"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { NavMain } from "./nav-main"
+import { SidebarLogo } from "./sidebar-logo"
+import { ThemeToggle } from "./theme-toggle"
 import {
   Sidebar,
   SidebarContent,

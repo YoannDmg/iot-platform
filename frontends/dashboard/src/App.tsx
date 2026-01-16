@@ -1,11 +1,11 @@
-import { MainLayout } from "@/layouts/main-layout"
-import { DashboardPage } from "@/pages/dashboard"
+import { DashboardLayout } from "@/layouts/dashboard-layout"
+import { DashboardPage } from "@/features/dashboard"
 
 export function App() {
   return (
-    <MainLayout>
+    <DashboardLayout>
       <DashboardPage />
-    </MainLayout>
+    </DashboardLayout>
   )
 }
 

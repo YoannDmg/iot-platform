@@ -1,14 +1,11 @@
-import { MantineProvider, createTheme } from '@mantine/core';
+import { MantineProvider } from '@mantine/core';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Devices } from './pages/Devices';
-import '@mantine/core/styles.css';
+import { theme } from './theme/theme';
 
-const theme = createTheme({
-  primaryColor: 'blue',
-  defaultRadius: 'md',
-});
+console.log('Theme loaded:', theme);
 
 function App() {
   return (

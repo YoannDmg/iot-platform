@@ -126,6 +126,9 @@ func main() {
 		),
 	)
 
+	// Add authentication extension (blocks unauthenticated requests except login/register)
+	srv.Use(auth.AuthExtension{})
+
 	// CORS middleware
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

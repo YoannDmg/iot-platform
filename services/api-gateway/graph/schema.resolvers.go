@@ -43,6 +43,11 @@ func (r *queryResolver) Me(ctx context.Context) (*model.User, error) {
 	return r.MeImpl(ctx)
 }
 
+// Users is the resolver for the users field.
+func (r *queryResolver) Users(ctx context.Context, page *int, pageSize *int, role *string) (*model.UserConnection, error) {
+	return r.UsersImpl(ctx, page, pageSize, role)
+}
+
 // Device is the resolver for the device field.
 func (r *queryResolver) Device(ctx context.Context, id string) (*model.Device, error) {
 	return r.DeviceImpl(ctx, id)

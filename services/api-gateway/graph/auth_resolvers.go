@@ -127,3 +127,46 @@ func (r *queryResolver) MeImpl(ctx context.Context) (*model.User, error) {
 func intPtr(i int) *int {
 	return &i
 }
+
+// UsersImpl returns a paginated list of users (admin only)
+func (r *queryResolver) UsersImpl(ctx context.Context, page *int, pageSize *int, role *string) (*model.UserConnection, error) {
+	// Default values
+	p := int32(1)
+	ps := int32(20)
+
+	if page != nil {
+		p = int32(*page)
+	}
+	if pageSize != nil {
+		ps = int32(*pageSize)
+	}
+
+	req := &userpb.ListUsersRequest{
+		Page:     p,
+		PageSize: ps,
+	}
+
+	// Set role filter if provided
+	if role != nil {
+		req.Role = *role
+	}
+
+	// Call User Service via gRPC
+	resp, err := r.UserClient.ListUsers(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+
+	// Convert protobuf users to GraphQL model
+	users := make([]*model.User, len(resp.Users))
+	for i, u := range resp.Users {
+		users[i] = protoToGraphQLUser(u)
+	}
+
+	return &model.UserConnection{
+		Users:    users,
+		Total:    int(resp.Total),
+		Page:     int(resp.Page),
+		PageSize: int(resp.PageSize),
+	}, nil
+}

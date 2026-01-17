@@ -96,6 +96,7 @@ type ComplexityRoot struct {
 		Devices                   func(childComplexity int, page *int, pageSize *int, typeArg *string, status *model.DeviceStatus) int
 		Me                        func(childComplexity int) int
 		Stats                     func(childComplexity int) int
+		Users                     func(childComplexity int, page *int, pageSize *int, role *string) int
 	}
 
 	Stats struct {
@@ -137,6 +138,13 @@ type ComplexityRoot struct {
 		Name      func(childComplexity int) int
 		Role      func(childComplexity int) int
 	}
+
+	UserConnection struct {
+		Page     func(childComplexity int) int
+		PageSize func(childComplexity int) int
+		Total    func(childComplexity int) int
+		Users    func(childComplexity int) int
+	}
 }
 
 type MutationResolver interface {
@@ -148,6 +156,7 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	Me(ctx context.Context) (*model.User, error)
+	Users(ctx context.Context, page *int, pageSize *int, role *string) (*model.UserConnection, error)
 	Device(ctx context.Context, id string) (*model.Device, error)
 	Devices(ctx context.Context, page *int, pageSize *int, typeArg *string, status *model.DeviceStatus) (*model.DeviceConnection, error)
 	Stats(ctx context.Context) (*model.Stats, error)
@@ -420,6 +429,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Stats(childComplexity), true
+	case "Query.users":
+		if e.complexity.Query.Users == nil {
+			break
+		}
+
+		args, err := ec.field_Query_users_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Users(childComplexity, args["page"].(*int), args["pageSize"].(*int), args["role"].(*string)), true
 
 	case "Stats.errorDevices":
 		if e.complexity.Stats.ErrorDevices == nil {
@@ -558,6 +578,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.User.Role(childComplexity), true
+
+	case "UserConnection.page":
+		if e.complexity.UserConnection.Page == nil {
+			break
+		}
+
+		return e.complexity.UserConnection.Page(childComplexity), true
+	case "UserConnection.pageSize":
+		if e.complexity.UserConnection.PageSize == nil {
+			break
+		}
+
+		return e.complexity.UserConnection.PageSize(childComplexity), true
+	case "UserConnection.total":
+		if e.complexity.UserConnection.Total == nil {
+			break
+		}
+
+		return e.complexity.UserConnection.Total(childComplexity), true
+	case "UserConnection.users":
+		if e.complexity.UserConnection.Users == nil {
+			break
+		}
+
+		return e.complexity.UserConnection.Users(childComplexity), true
 
 	}
 	return 0, false
@@ -808,6 +853,13 @@ type Query {
   # Récupérer l'utilisateur actuellement connecté
   me: User
 
+  # Lister tous les utilisateurs avec pagination (admin only)
+  users(
+    page: Int = 1
+    pageSize: Int = 20
+    role: String
+  ): UserConnection!
+
   # Récupérer un device par son ID
   device(id: ID!): Device
 
@@ -854,7 +906,15 @@ type Query {
   deviceMetrics(deviceId: ID!): [String!]!
 }
 
-# Connexion pour la pagination
+# Connexion pour la pagination des utilisateurs
+type UserConnection {
+  users: [User!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+}
+
+# Connexion pour la pagination des devices
 type DeviceConnection {
   devices: [Device!]!
   total: Int!
@@ -1102,6 +1162,27 @@ func (ec *executionContext) field_Query_devices_args(ctx context.Context, rawArg
 		return nil, err
 	}
 	args["status"] = arg3
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "page", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["page"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "pageSize", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["pageSize"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "role", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["role"] = arg2
 	return args, nil
 }
 
@@ -1984,6 +2065,57 @@ func (ec *executionContext) fieldContext_Query_me(_ context.Context, field graph
 			}
 			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_users(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_users,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().Users(ctx, fc.Args["page"].(*int), fc.Args["pageSize"].(*int), fc.Args["role"].(*string))
+		},
+		nil,
+		ec.marshalNUserConnection2ᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐUserConnection,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_users(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "users":
+				return ec.fieldContext_UserConnection_users(ctx, field)
+			case "total":
+				return ec.fieldContext_UserConnection_total(ctx, field)
+			case "page":
+				return ec.fieldContext_UserConnection_page(ctx, field)
+			case "pageSize":
+				return ec.fieldContext_UserConnection_pageSize(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UserConnection", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_users_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -3090,6 +3222,138 @@ func (ec *executionContext) fieldContext_User_isActive(_ context.Context, field 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UserConnection_users(ctx context.Context, field graphql.CollectedField, obj *model.UserConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_UserConnection_users,
+		func(ctx context.Context) (any, error) {
+			return obj.Users, nil
+		},
+		nil,
+		ec.marshalNUser2ᚕᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐUserᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_UserConnection_users(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UserConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_User_id(ctx, field)
+			case "email":
+				return ec.fieldContext_User_email(ctx, field)
+			case "name":
+				return ec.fieldContext_User_name(ctx, field)
+			case "role":
+				return ec.fieldContext_User_role(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_User_createdAt(ctx, field)
+			case "lastLogin":
+				return ec.fieldContext_User_lastLogin(ctx, field)
+			case "isActive":
+				return ec.fieldContext_User_isActive(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UserConnection_total(ctx context.Context, field graphql.CollectedField, obj *model.UserConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_UserConnection_total,
+		func(ctx context.Context) (any, error) {
+			return obj.Total, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_UserConnection_total(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UserConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UserConnection_page(ctx context.Context, field graphql.CollectedField, obj *model.UserConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_UserConnection_page,
+		func(ctx context.Context) (any, error) {
+			return obj.Page, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_UserConnection_page(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UserConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UserConnection_pageSize(ctx context.Context, field graphql.CollectedField, obj *model.UserConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_UserConnection_pageSize,
+		func(ctx context.Context) (any, error) {
+			return obj.PageSize, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_UserConnection_pageSize(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UserConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5124,6 +5388,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "users":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_users(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "device":
 			field := field
 
@@ -5566,6 +5852,60 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			out.Values[i] = ec._User_lastLogin(ctx, field, obj)
 		case "isActive":
 			out.Values[i] = ec._User_isActive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var userConnectionImplementors = []string{"UserConnection"}
+
+func (ec *executionContext) _UserConnection(ctx context.Context, sel ast.SelectionSet, obj *model.UserConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, userConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UserConnection")
+		case "users":
+			out.Values[i] = ec._UserConnection_users(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "total":
+			out.Values[i] = ec._UserConnection_total(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "page":
+			out.Values[i] = ec._UserConnection_page(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageSize":
+			out.Values[i] = ec._UserConnection_pageSize(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6362,6 +6702,50 @@ func (ec *executionContext) unmarshalNUpdateDeviceInput2githubᚗcomᚋyourusern
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalNUser2ᚕᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐUserᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.User) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNUser2ᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐUser(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -6370,6 +6754,20 @@ func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋyourusernameᚋiotᚑ
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNUserConnection2githubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐUserConnection(ctx context.Context, sel ast.SelectionSet, v model.UserConnection) graphql.Marshaler {
+	return ec._UserConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNUserConnection2ᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐUserConnection(ctx context.Context, sel ast.SelectionSet, v *model.UserConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._UserConnection(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

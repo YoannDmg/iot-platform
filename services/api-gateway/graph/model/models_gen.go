@@ -116,6 +116,13 @@ type User struct {
 	IsActive  bool   `json:"isActive"`
 }
 
+type UserConnection struct {
+	Users    []*User `json:"users"`
+	Total    int     `json:"total"`
+	Page     int     `json:"page"`
+	PageSize int     `json:"pageSize"`
+}
+
 type DeviceStatus string
 
 const (

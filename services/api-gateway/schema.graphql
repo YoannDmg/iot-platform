@@ -120,6 +120,13 @@ type Query {
   # Récupérer l'utilisateur actuellement connecté
   me: User
 
+  # Lister tous les utilisateurs avec pagination (admin only)
+  users(
+    page: Int = 1
+    pageSize: Int = 20
+    role: String
+  ): UserConnection!
+
   # Récupérer un device par son ID
   device(id: ID!): Device
 
@@ -166,7 +173,15 @@ type Query {
   deviceMetrics(deviceId: ID!): [String!]!
 }
 
-# Connexion pour la pagination
+# Connexion pour la pagination des utilisateurs
+type UserConnection {
+  users: [User!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+}
+
+# Connexion pour la pagination des devices
 type DeviceConnection {
   devices: [Device!]!
   total: Int!

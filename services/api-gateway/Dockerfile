@@ -6,22 +6,23 @@ WORKDIR /app
 # Install git for fetching dependencies
 RUN apk add --no-cache git
 
-# Copy go mod files
-COPY go.mod go.sum* ./
+# Copy go.mod + go.sum from repo root
+COPY services/api-gateway/go.mod services/api-gateway/go.sum ./
 
-# Copy shared proto (needed for local replace directive)
-COPY ../../shared/proto /shared/proto
 
-# Update go.mod to use absolute path for shared proto
+# Copy shared proto
+COPY shared/proto /shared/proto
+
+# Update go.mod replace
 RUN go mod edit -replace github.com/yourusername/iot-platform/shared/proto=/shared/proto
 
 # Download dependencies
 RUN go mod download
 
-# Copy source code
-COPY . .
+# Copy API Gateway source code
+COPY services/api-gateway ./
 
-# Build the binary
+# Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api-gateway .
 
 # Runtime stage

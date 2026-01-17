@@ -97,8 +97,8 @@ services:
   # API Gateway - GraphQL entry point
   api-gateway:
     build:
-      context: ./services/api-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
     container_name: iot-api-gateway
     ports:
       - "8080:8080"
@@ -122,8 +122,8 @@ services:
   # Device Manager - Device CRUD operations
   device-manager:
     build:
-      context: ./services/device-manager
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/device-manager/Dockerfile
     container_name: iot-device-manager
     ports:
       - "8081:8081"
@@ -143,8 +143,8 @@ services:
   # User Service - Authentication & authorization
   user-service:
     build:
-      context: ./services/user-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/user-service/Dockerfile
     container_name: iot-user-service
     ports:
       - "8082:8082"
@@ -164,8 +164,8 @@ services:
   # Telemetry Collector - MQTT ingestion & time-series storage
   telemetry-collector:
     build:
-      context: ./services/telemetry-collector
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/telemetry-collector/Dockerfile
     container_name: iot-telemetry-collector
     ports:
       - "8083:8083"

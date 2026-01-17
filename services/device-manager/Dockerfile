@@ -6,22 +6,23 @@ WORKDIR /app
 # Install git for fetching dependencies
 RUN apk add --no-cache git
 
-# Copy go mod files
-COPY go.mod go.sum* ./
+# Copy go.mod + go.sum from repo root
+COPY services/device-manager/go.mod services/device-manager/go.sum ./
 
-# Copy shared proto (needed for local replace directive)
-COPY ../../shared/proto /shared/proto
 
-# Update go.mod to use absolute path for shared proto
+# Copy shared proto
+COPY shared/proto /shared/proto
+
+# Update go.mod replace
 RUN go mod edit -replace github.com/yourusername/iot-platform/shared/proto=/shared/proto
 
 # Download dependencies
 RUN go mod download
 
-# Copy source code
-COPY . .
+# Copy service source
+COPY services/device-manager ./
 
-# Build the binary
+# Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o device-manager .
 
 # Runtime stage
@@ -30,7 +31,7 @@ FROM alpine:3.19
 WORKDIR /app
 
 # Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
+RUN apk add --no-cache ca-certificates
 
 # Copy binary from builder
 COPY --from=builder /app/device-manager .
@@ -38,5 +39,5 @@ COPY --from=builder /app/device-manager .
 # Expose gRPC port
 EXPOSE 8081
 
-# Run the service
+# Run
 CMD ["./device-manager"]

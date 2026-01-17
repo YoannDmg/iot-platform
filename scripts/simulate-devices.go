@@ -15,11 +15,12 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
+	mathrand "math/rand"
 	"os"
 	"os/signal"
 	"syscall"
@@ -27,6 +28,17 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
+
+// generateUUID generates a random UUID v4
+func generateUUID() string {
+	uuid := make([]byte, 16)
+	_, _ = rand.Read(uuid)
+	// Set version (4) and variant (RFC 4122)
+	uuid[6] = (uuid[6] & 0x0f) | 0x40
+	uuid[8] = (uuid[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%12x",
+		uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:16])
+}
 
 // TelemetryMessage is the JSON payload sent to MQTT
 type TelemetryMessage struct {
@@ -142,9 +154,9 @@ func main() {
 	// Create device simulators
 	simulators := make([]*DeviceSimulator, *numDevices)
 	for i := 0; i < *numDevices; i++ {
-		deviceType := deviceTypes[rand.Intn(len(deviceTypes))]
+		deviceType := deviceTypes[mathrand.Intn(len(deviceTypes))]
 		simulators[i] = &DeviceSimulator{
-			ID:       fmt.Sprintf("sim-device-%03d", i+1),
+			ID:       generateUUID(),
 			Type:     deviceType.Name,
 			client:   client,
 			stopChan: make(chan struct{}),
@@ -213,10 +225,10 @@ func (d *DeviceSimulator) Run(interval time.Duration) {
 func (d *DeviceSimulator) sendTelemetry(deviceType DeviceType) {
 	metrics := make([]Metric, len(deviceType.Metrics))
 	for i, spec := range deviceType.Metrics {
-		value := spec.BaseVal + (rand.Float64()*2-1)*spec.Variance
+		value := spec.BaseVal + (mathrand.Float64()*2-1)*spec.Variance
 		if spec.Name == "motion_detected" {
 			// Binary value for motion
-			if rand.Float64() > 0.8 {
+			if mathrand.Float64() > 0.8 {
 				value = 1.0
 			} else {
 				value = 0.0

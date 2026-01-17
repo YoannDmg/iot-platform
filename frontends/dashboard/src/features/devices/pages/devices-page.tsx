@@ -12,90 +12,62 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DeviceTable, DeviceSearch } from "../components"
-import type { Device } from "@/shared/types"
-
-// Mock data - à remplacer par les vraies données de l'API
-const mockDevices: Device[] = [
-  {
-    id: "1",
-    name: "Temperature Sensor #1",
-    type: "Temperature",
-    status: "ONLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 120,
-    metadata: [{ key: "location", value: "Room A" }],
-  },
-  {
-    id: "2",
-    name: "Humidity Sensor #2",
-    type: "Humidity",
-    status: "OFFLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 7200,
-    metadata: [{ key: "location", value: "Room B" }],
-  },
-  {
-    id: "3",
-    name: "Motion Detector #3",
-    type: "Motion",
-    status: "ONLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 30,
-    metadata: [{ key: "location", value: "Entrance" }],
-  },
-  {
-    id: "4",
-    name: "Light Controller #4",
-    type: "Light",
-    status: "MAINTENANCE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 86400,
-    metadata: [{ key: "location", value: "Living Room" }],
-  },
-  {
-    id: "5",
-    name: "Door Sensor #5",
-    type: "Door",
-    status: "ONLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 60,
-    metadata: [{ key: "location", value: "Front Door" }],
-  },
-  {
-    id: "6",
-    name: "Smoke Detector #6",
-    type: "Smoke",
-    status: "ERROR",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 3600,
-    metadata: [{ key: "location", value: "Kitchen" }],
-  },
-]
+import { useDevices, useDeleteDevice } from "@/hooks/use-devices"
+import type { Device } from "@/types/device"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function DevicesPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState("")
+  const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null)
+
+  const { devices, loading, error } = useDevices()
+  const { deleteDevice, loading: deleteLoading } = useDeleteDevice()
 
   const filteredDevices = useMemo(() => {
-    if (!search) return mockDevices
+    if (!search) return devices
     const searchLower = search.toLowerCase()
-    return mockDevices.filter(
+    return devices.filter(
       (device) =>
         device.name.toLowerCase().includes(searchLower) ||
         device.type.toLowerCase().includes(searchLower)
     )
-  }, [search])
+  }, [search, devices])
 
   const handleView = (device: Device) => {
     navigate(`/devices/${device.id}`)
   }
 
   const handleEdit = (device: Device) => {
-    console.log("Edit device:", device)
+    navigate(`/devices/${device.id}/edit`)
   }
 
   const handleDelete = (device: Device) => {
-    console.log("Delete device:", device)
+    setDeviceToDelete(device)
+  }
+
+  const confirmDelete = async () => {
+    if (deviceToDelete) {
+      await deleteDevice(deviceToDelete.id)
+      setDeviceToDelete(null)
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-destructive">Error loading devices: {error.message}</p>
+      </div>
+    )
   }
 
   return (
@@ -130,15 +102,42 @@ export function DevicesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <DeviceTable
-              devices={filteredDevices}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+            {loading ? (
+              <div className="flex h-32 items-center justify-center">
+                <p className="text-muted-foreground">Loading devices...</p>
+              </div>
+            ) : (
+              <DeviceTable
+                devices={filteredDevices}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={!!deviceToDelete} onOpenChange={() => setDeviceToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Device</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deviceToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

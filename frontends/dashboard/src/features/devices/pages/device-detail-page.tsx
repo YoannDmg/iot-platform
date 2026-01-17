@@ -14,72 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { IconArrowLeft, IconEdit } from "@tabler/icons-react"
 import { DeviceStatusBadge } from "../components"
-import type { Device } from "@/shared/types"
-
-// Mock data - à remplacer par les vraies données de l'API
-const mockDevices: Record<string, Device> = {
-  "1": {
-    id: "1",
-    name: "Temperature Sensor #1",
-    type: "Temperature",
-    status: "ONLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 120,
-    metadata: [
-      { key: "location", value: "Room A" },
-      { key: "model", value: "TMP-100" },
-      { key: "firmware", value: "v2.1.0" },
-    ],
-  },
-  "2": {
-    id: "2",
-    name: "Humidity Sensor #2",
-    type: "Humidity",
-    status: "OFFLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 7200,
-    metadata: [
-      { key: "location", value: "Room B" },
-      { key: "model", value: "HUM-200" },
-    ],
-  },
-  "3": {
-    id: "3",
-    name: "Motion Detector #3",
-    type: "Motion",
-    status: "ONLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 30,
-    metadata: [{ key: "location", value: "Entrance" }],
-  },
-  "4": {
-    id: "4",
-    name: "Light Controller #4",
-    type: "Light",
-    status: "MAINTENANCE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 86400,
-    metadata: [{ key: "location", value: "Living Room" }],
-  },
-  "5": {
-    id: "5",
-    name: "Door Sensor #5",
-    type: "Door",
-    status: "ONLINE",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 60,
-    metadata: [{ key: "location", value: "Front Door" }],
-  },
-  "6": {
-    id: "6",
-    name: "Smoke Detector #6",
-    type: "Smoke",
-    status: "ERROR",
-    createdAt: 1704067200,
-    lastSeen: Math.floor(Date.now() / 1000) - 3600,
-    metadata: [{ key: "location", value: "Kitchen" }],
-  },
-}
+import { useDevice } from "@/hooks/use-devices"
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleDateString("en-US", {
@@ -94,8 +29,79 @@ function formatDate(timestamp: number): string {
 export function DeviceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { device, loading, error } = useDevice(id ?? "")
 
-  const device = id ? mockDevices[id] : null
+  if (loading) {
+    return (
+      <>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink href="/">Home</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/devices">Devices</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Loading...</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-muted-foreground">Loading device...</p>
+        </div>
+      </>
+    )
+  }
+
+  if (error) {
+    return (
+      <>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink href="/">Home</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/devices">Devices</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Error</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+          <p className="text-destructive">Error: {error.message}</p>
+          <Button variant="outline" onClick={() => navigate("/devices")}>
+            <IconArrowLeft className="mr-2 h-4 w-4" />
+            Back to devices
+          </Button>
+        </div>
+      </>
+    )
+  }
 
   if (!device) {
     return (
@@ -169,7 +175,7 @@ export function DeviceDetailPage() {
             <IconArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => navigate(`/devices/${device.id}/edit`)}>
             <IconEdit className="mr-2 h-4 w-4" />
             Edit
           </Button>

@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { IconDots, IconEye, IconEdit, IconTrash } from "@tabler/icons-react"
-import { type Device } from "@/shared/types"
+import type { Device } from "@/types/device"
 import { DeviceStatusBadge } from "./device-status-badge"
 
 interface DeviceTableProps {

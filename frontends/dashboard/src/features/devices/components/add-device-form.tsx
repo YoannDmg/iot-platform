@@ -45,11 +45,12 @@ const addDeviceSchema = z.object({
 export type AddDeviceFormValues = z.infer<typeof addDeviceSchema>
 
 export interface AddDeviceFormProps {
-  onSubmit: (data: AddDeviceFormValues) => void
+  onSubmit: (data: AddDeviceFormValues) => void | Promise<void>
   onCancel: () => void
+  isSubmitting?: boolean
 }
 
-export function AddDeviceForm({ onSubmit, onCancel }: AddDeviceFormProps) {
+export function AddDeviceForm({ onSubmit, onCancel, isSubmitting }: AddDeviceFormProps) {
   const form = useForm({
     defaultValues: {
       name: "",
@@ -227,12 +228,12 @@ export function AddDeviceForm({ onSubmit, onCancel }: AddDeviceFormProps) {
           </div>
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">
+          <Button type="submit" disabled={isSubmitting}>
             <IconPlus className="mr-2 h-4 w-4" />
-            Create Device
+            {isSubmitting ? "Creating..." : "Create Device"}
           </Button>
         </CardFooter>
       </Card>

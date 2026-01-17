@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   Breadcrumb,
@@ -12,14 +13,25 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { IconArrowLeft } from "@tabler/icons-react"
 import { AddDeviceForm, type AddDeviceFormValues } from "../components/add-device-form"
+import { useCreateDevice } from "@/hooks/use-devices"
 
 export function AddDevicePage() {
   const navigate = useNavigate()
+  const { createDevice, loading, error } = useCreateDevice()
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const handleSubmit = (data: AddDeviceFormValues) => {
-    // TODO: Call API to create device
-    console.log("Creating device:", data)
-    navigate("/devices")
+  const handleSubmit = async (data: AddDeviceFormValues) => {
+    setSubmitError(null)
+    try {
+      await createDevice({
+        name: data.name,
+        type: data.type,
+        metadata: data.metadata,
+      })
+      navigate("/devices")
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to create device")
+    }
   }
 
   const handleCancel = () => {
@@ -61,8 +73,20 @@ export function AddDevicePage() {
           </Button>
         </div>
 
+        {(error || submitError) && (
+          <div className="max-w-2xl rounded-md border border-destructive bg-destructive/10 p-4">
+            <p className="text-sm text-destructive">
+              {submitError || error?.message || "An error occurred"}
+            </p>
+          </div>
+        )}
+
         <div className="max-w-2xl">
-          <AddDeviceForm onSubmit={handleSubmit} onCancel={handleCancel} />
+          <AddDeviceForm
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            isSubmitting={loading}
+          />
         </div>
       </div>
     </>

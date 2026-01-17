@@ -15,15 +15,9 @@ import {
   IconAlertTriangle,
 } from "@tabler/icons-react"
 import { StatsCard, RecentActivity, ChartCard, ActiveAlerts } from "../components"
+import { useStats, useDevices } from "@/hooks/use-devices"
 
-// Mock data - à remplacer par les vraies données de l'API
-const mockStats = {
-  totalDevices: 42,
-  onlineDevices: 38,
-  offlineDevices: 4,
-  alertsCount: 3,
-}
-
+// Mock data for activities and alerts (not yet available in API)
 const mockActivities = [
   {
     id: "1",
@@ -88,12 +82,21 @@ const mockAlerts = [
 ]
 
 export function HomePage() {
-  const onlinePercentage = Math.round(
-    (mockStats.onlineDevices / mockStats.totalDevices) * 100
-  )
-  const offlinePercentage = Math.round(
-    (mockStats.offlineDevices / mockStats.totalDevices) * 100
-  )
+  const { stats, loading: statsLoading } = useStats()
+  const { devices } = useDevices({ status: "ERROR" })
+
+  const alertsCount = devices.length + mockAlerts.length
+
+  const totalDevices = stats?.totalDevices ?? 0
+  const onlineDevices = stats?.onlineDevices ?? 0
+  const offlineDevices = stats?.offlineDevices ?? 0
+
+  const onlinePercentage = totalDevices > 0
+    ? Math.round((onlineDevices / totalDevices) * 100)
+    : 0
+  const offlinePercentage = totalDevices > 0
+    ? Math.round((offlineDevices / totalDevices) * 100)
+    : 0
 
   return (
     <>
@@ -123,26 +126,26 @@ export function HomePage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             title="Total Devices"
-            value={mockStats.totalDevices}
+            value={statsLoading ? "-" : totalDevices}
             icon={<IconDevices className="h-5 w-5" />}
           />
           <StatsCard
             title="Online Devices"
-            value={mockStats.onlineDevices}
-            subtitle={`${onlinePercentage}%`}
+            value={statsLoading ? "-" : onlineDevices}
+            subtitle={statsLoading ? "" : `${onlinePercentage}%`}
             icon={<IconWifi className="h-5 w-5" />}
           />
           <StatsCard
             title="Offline Devices"
-            value={mockStats.offlineDevices}
-            subtitle={`${offlinePercentage}%`}
+            value={statsLoading ? "-" : offlineDevices}
+            subtitle={statsLoading ? "" : `${offlinePercentage}%`}
             icon={<IconWifiOff className="h-5 w-5" />}
           />
           <StatsCard
             title="Active Alerts"
-            value={mockStats.alertsCount}
+            value={statsLoading ? "-" : alertsCount}
             icon={<IconAlertTriangle className="h-5 w-5" />}
-            className={mockStats.alertsCount > 0 ? "border-yellow-500/50" : ""}
+            className={alertsCount > 0 ? "border-yellow-500/50" : ""}
           />
         </div>
 

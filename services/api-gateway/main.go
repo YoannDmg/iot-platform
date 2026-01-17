@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	defaultPort              = "8080"
-	defaultDeviceManagerAddr = "localhost:8081"
-	defaultUserServiceAddr   = "localhost:8083"
-	defaultJWTSecret         = "dev-jwt-secret-NOT-FOR-PRODUCTION"
+	defaultPort                 = "8080"
+	defaultDeviceManagerAddr    = "localhost:8081"
+	defaultUserServiceAddr      = "localhost:8082"
+	defaultTelemetryServiceAddr = "localhost:8083"
+	defaultJWTSecret            = "dev-jwt-secret-NOT-FOR-PRODUCTION"
 )
 
 // main configures and starts the HTTP GraphQL server.
@@ -34,7 +35,8 @@ const (
 // Configuration:
 //   - PORT: Server port (default: 8080)
 //   - DEVICE_MANAGER_ADDR: Device Manager address (default: localhost:8081)
-//   - USER_SERVICE_ADDR: User Service address (default: localhost:8083)
+//   - USER_SERVICE_ADDR: User Service address (default: localhost:8082)
+//   - TELEMETRY_SERVICE_ADDR: Telemetry Collector address (default: localhost:8083)
 //   - JWT_SECRET: Secret key for JWT tokens (default: dev-jwt-secret-NOT-FOR-PRODUCTION)
 //
 // TODO Production:
@@ -55,6 +57,11 @@ func main() {
 	userServiceAddr := os.Getenv("USER_SERVICE_ADDR")
 	if userServiceAddr == "" {
 		userServiceAddr = defaultUserServiceAddr
+	}
+
+	telemetryServiceAddr := os.Getenv("TELEMETRY_SERVICE_ADDR")
+	if telemetryServiceAddr == "" {
+		telemetryServiceAddr = defaultTelemetryServiceAddr
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -85,18 +92,36 @@ func main() {
 		}
 	}()
 
+	// Connect to Telemetry Collector via gRPC
+	telemetryClient, err := grpcClient.NewTelemetryClient(telemetryServiceAddr)
+	if err != nil {
+		log.Printf("⚠️  Failed to connect to Telemetry Collector: %v (telemetry queries will fail)", err)
+	} else {
+		defer func() {
+			if err := telemetryClient.Close(); err != nil {
+				log.Printf("⚠️  Failed to close telemetry client: %v", err)
+			}
+		}()
+	}
+
 	// Initialize JWT manager (24 hours token duration)
 	jwtManager := auth.NewJWTManager(jwtSecret, 24*time.Hour)
+
+	// Build resolver with available clients
+	resolver := &graph.Resolver{
+		DeviceClient: deviceClient.GetClient(),
+		UserClient:   userClient.GetClient(),
+		JWTManager:   jwtManager,
+	}
+	if telemetryClient != nil {
+		resolver.TelemetryClient = telemetryClient.GetClient()
+	}
 
 	// Create GraphQL server with auth middleware
 	srv := handler.NewDefaultServer(
 		generated.NewExecutableSchema(
 			generated.Config{
-				Resolvers: &graph.Resolver{
-					DeviceClient: deviceClient.GetClient(),
-					UserClient:   userClient.GetClient(),
-					JWTManager:   jwtManager,
-				},
+				Resolvers: resolver,
 			},
 		),
 	)
@@ -142,6 +167,7 @@ func main() {
 	log.Printf("Port: %s", port)
 	log.Printf("Device Manager: %s", deviceManagerAddr)
 	log.Printf("User Service: %s", userServiceAddr)
+	log.Printf("Telemetry Collector: %s", telemetryServiceAddr)
 	log.Println("-------------------------------------")
 	log.Printf("📊 GraphQL Playground: http://localhost:%s/", port)
 	log.Printf("🔗 GraphQL API: http://localhost:%s/query", port)

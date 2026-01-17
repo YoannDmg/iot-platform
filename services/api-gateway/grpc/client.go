@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	devicepb "github.com/yourusername/iot-platform/shared/proto/device"
+	telemetrypb "github.com/yourusername/iot-platform/shared/proto/telemetry"
 	userpb "github.com/yourusername/iot-platform/shared/proto/user"
 )
 
@@ -85,5 +86,43 @@ func (c *UserClient) Close() error {
 
 // GetClient returns the underlying gRPC client.
 func (c *UserClient) GetClient() userpb.UserServiceClient {
+	return c.client
+}
+
+// TelemetryClient wraps the gRPC client for Telemetry Collector service.
+type TelemetryClient struct {
+	conn   *grpc.ClientConn
+	client telemetrypb.TelemetryServiceClient
+}
+
+// NewTelemetryClient creates a new gRPC client connection to Telemetry Collector.
+func NewTelemetryClient(address string) (*TelemetryClient, error) {
+	// TODO Production: Add TLS credentials
+	conn, err := grpc.NewClient(
+		address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create grpc client: %w", err)
+	}
+
+	log.Printf("✅ Connected to Telemetry Collector at %s", address)
+
+	return &TelemetryClient{
+		conn:   conn,
+		client: telemetrypb.NewTelemetryServiceClient(conn),
+	}, nil
+}
+
+// Close closes the gRPC connection.
+func (c *TelemetryClient) Close() error {
+	if c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}
+
+// GetClient returns the underlying gRPC client.
+func (c *TelemetryClient) GetClient() telemetrypb.TelemetryServiceClient {
 	return c.client
 }

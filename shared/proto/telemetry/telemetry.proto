@@ -1,0 +1,96 @@
+// Protocol Buffers version 3
+syntax = "proto3";
+
+// Package for telemetry service
+package telemetry;
+
+// Go package option
+option go_package = "github.com/yourusername/iot-platform/shared/proto/telemetry";
+
+// ============================================
+// MESSAGES
+// ============================================
+
+// A single telemetry data point
+message TelemetryPoint {
+  int64 time = 1;     // Unix timestamp
+  double value = 2;   // Metric value
+  string unit = 3;    // Unit of measurement (optional)
+}
+
+// Aggregated telemetry data for a time bucket
+message TelemetryAggregation {
+  string bucket = 1;  // Time bucket (RFC3339 format)
+  double avg = 2;     // Average value
+  double min = 3;     // Minimum value
+  double max = 4;     // Maximum value
+  int64 count = 5;    // Number of samples
+}
+
+// Request to get raw telemetry data
+message GetTelemetryRequest {
+  string device_id = 1;    // Device UUID
+  string metric_name = 2;  // Metric name (e.g., "temperature")
+  int64 from_time = 3;     // Start time (Unix timestamp)
+  int64 to_time = 4;       // End time (Unix timestamp)
+  int32 limit = 5;         // Maximum number of points (default: 1000)
+}
+
+// Response with raw telemetry data
+message GetTelemetryResponse {
+  repeated TelemetryPoint points = 1;
+}
+
+// Request to get aggregated telemetry data
+message GetTelemetryAggregatedRequest {
+  string device_id = 1;    // Device UUID
+  string metric_name = 2;  // Metric name
+  int64 from_time = 3;     // Start time (Unix timestamp)
+  int64 to_time = 4;       // End time (Unix timestamp)
+  string interval = 5;     // Aggregation interval (e.g., "1 hour", "1 day")
+}
+
+// Response with aggregated telemetry data
+message GetTelemetryAggregatedResponse {
+  repeated TelemetryAggregation aggregations = 1;
+}
+
+// Request to get the latest metric value
+message GetLatestMetricRequest {
+  string device_id = 1;    // Device UUID
+  string metric_name = 2;  // Metric name
+}
+
+// Response with the latest metric value
+message GetLatestMetricResponse {
+  TelemetryPoint point = 1;
+}
+
+// Request to get all available metrics for a device
+message GetDeviceMetricsRequest {
+  string device_id = 1;    // Device UUID
+}
+
+// Response with list of metric names
+message GetDeviceMetricsResponse {
+  repeated string metrics = 1;
+}
+
+// ============================================
+// SERVICE
+// ============================================
+
+// Telemetry service for querying device telemetry data
+service TelemetryService {
+  // Get raw telemetry data within a time range
+  rpc GetTelemetry(GetTelemetryRequest) returns (GetTelemetryResponse);
+
+  // Get aggregated telemetry data (for charts/dashboards)
+  rpc GetTelemetryAggregated(GetTelemetryAggregatedRequest) returns (GetTelemetryAggregatedResponse);
+
+  // Get the latest value for a specific metric
+  rpc GetLatestMetric(GetLatestMetricRequest) returns (GetLatestMetricResponse);
+
+  // Get all available metrics for a device
+  rpc GetDeviceMetrics(GetDeviceMetricsRequest) returns (GetDeviceMetricsResponse);
+}

@@ -80,6 +80,25 @@ type Stats struct {
 type Subscription struct {
 }
 
+type TelemetryAggregation struct {
+	Bucket string  `json:"bucket"`
+	Avg    float64 `json:"avg"`
+	Min    float64 `json:"min"`
+	Max    float64 `json:"max"`
+	Count  int     `json:"count"`
+}
+
+type TelemetryPoint struct {
+	Time  int     `json:"time"`
+	Value float64 `json:"value"`
+	Unit  *string `json:"unit,omitempty"`
+}
+
+type TelemetrySeries struct {
+	MetricName string            `json:"metricName"`
+	Points     []*TelemetryPoint `json:"points"`
+}
+
 type UpdateDeviceInput struct {
 	ID       string                `json:"id"`
 	Name     *string               `json:"name,omitempty"`

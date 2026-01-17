@@ -58,6 +58,26 @@ func (r *queryResolver) Stats(ctx context.Context) (*model.Stats, error) {
 	return r.StatsImpl(ctx)
 }
 
+// DeviceTelemetry is the resolver for the deviceTelemetry field.
+func (r *queryResolver) DeviceTelemetry(ctx context.Context, deviceID string, metricName string, from int, to int, limit *int) (*model.TelemetrySeries, error) {
+	return r.DeviceTelemetryImpl(ctx, deviceID, metricName, from, to, limit)
+}
+
+// DeviceTelemetryAggregated is the resolver for the deviceTelemetryAggregated field.
+func (r *queryResolver) DeviceTelemetryAggregated(ctx context.Context, deviceID string, metricName string, from int, to int, interval string) ([]*model.TelemetryAggregation, error) {
+	return r.DeviceTelemetryAggregatedImpl(ctx, deviceID, metricName, from, to, interval)
+}
+
+// DeviceLatestMetric is the resolver for the deviceLatestMetric field.
+func (r *queryResolver) DeviceLatestMetric(ctx context.Context, deviceID string, metricName string) (*model.TelemetryPoint, error) {
+	return r.DeviceLatestMetricImpl(ctx, deviceID, metricName)
+}
+
+// DeviceMetrics is the resolver for the deviceMetrics field.
+func (r *queryResolver) DeviceMetrics(ctx context.Context, deviceID string) ([]string, error) {
+	return r.DeviceMetricsImpl(ctx, deviceID)
+}
+
 // DeviceUpdated is the resolver for the deviceUpdated field.
 func (r *subscriptionResolver) DeviceUpdated(ctx context.Context) (<-chan *model.Device, error) {
 	panic(fmt.Errorf("not implemented: DeviceUpdated - deviceUpdated"))

@@ -238,12 +238,12 @@ func (s *UserServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) 
 // main starts the User Service gRPC server.
 //
 // Configuration via environment variables:
-//   - USER_SERVICE_PORT: gRPC server port (default: 8083)
+//   - USER_SERVICE_PORT: gRPC server port (default: 8082)
 //   - STORAGE_TYPE: "postgres" or "memory" (default: memory)
 //   - DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SSLMODE
 func main() {
 	ctx := context.Background()
-	port := getEnvInt("USER_SERVICE_PORT", 8083)
+	port := getEnvInt("USER_SERVICE_PORT", 8082)
 
 	// Configure storage backend
 	storageType := getEnv("STORAGE_TYPE", "memory")

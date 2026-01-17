@@ -48,6 +48,32 @@ enum DeviceStatus {
 }
 
 # ============================================
+# TELEMETRY TYPES
+# ============================================
+
+# Point de télémétrie
+type TelemetryPoint {
+  time: Int!
+  value: Float!
+  unit: String
+}
+
+# Série de télémétrie
+type TelemetrySeries {
+  metricName: String!
+  points: [TelemetryPoint!]!
+}
+
+# Agrégation de télémétrie (pour graphiques)
+type TelemetryAggregation {
+  bucket: String!
+  avg: Float!
+  min: Float!
+  max: Float!
+  count: Int!
+}
+
+# ============================================
 # INPUTS (pour les mutations)
 # ============================================
 
@@ -107,6 +133,37 @@ type Query {
 
   # Statistiques globales
   stats: Stats!
+
+  # ============================================
+  # TELEMETRY QUERIES
+  # ============================================
+
+  # Données de télémétrie brutes d'un device
+  deviceTelemetry(
+    deviceId: ID!
+    metricName: String!
+    from: Int!
+    to: Int!
+    limit: Int = 1000
+  ): TelemetrySeries!
+
+  # Données agrégées (pour graphiques)
+  deviceTelemetryAggregated(
+    deviceId: ID!
+    metricName: String!
+    from: Int!
+    to: Int!
+    interval: String!
+  ): [TelemetryAggregation!]!
+
+  # Dernière valeur d'une métrique
+  deviceLatestMetric(
+    deviceId: ID!
+    metricName: String!
+  ): TelemetryPoint
+
+  # Liste des métriques disponibles pour un device
+  deviceMetrics(deviceId: ID!): [String!]!
 }
 
 # Connexion pour la pagination

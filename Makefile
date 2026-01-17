@@ -1,11 +1,15 @@
 .PHONY: help setup generate clean build dev test docs-dev docs-build docs-serve docs-clean
 
 # Variables
-SERVICES := device-manager api-gateway user-service
+SERVICES := device-manager api-gateway user-service telemetry-collector
 PROTO_DIR := shared/proto
 BIN_DIR := bin
 DASHBOARD_DIR := frontends/dashboard
+SCRIPTS_DIR := scripts
 MAKEFILE := Makefile
+
+# Infrastructure services (Docker)
+INFRA_SERVICES := postgres redis mosquitto prometheus grafana
 
 # Load .env file if it exists
 -include .env
@@ -28,10 +32,10 @@ help: ## Affiche l'aide
 	@grep -E '^(build|clean):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🐳 DOCKER"
-	@grep -E '^(up|down|logs|status|restart):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(up|up-all|down|down-all|logs|logs-infra|logs-services|status|restart|rebuild):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🚀 SERVICES (DEV MODE)"
-	@grep -E '^(device-manager|api-gateway|user-service|dashboard|dev|dev-full):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(device-manager|api-gateway|user-service|telemetry-collector|dashboard|dev|dev-full|simulate):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "🧪 TESTS"
 	@grep -E '^(test|test-unit|test-integration|test-e2e|test-all|test-security|test-device|test-user|test-api):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -94,6 +98,8 @@ clean: ## Supprime les binaires et fichiers temporaires
 	@rm -rf $(BIN_DIR)/
 	@rm -f services/device-manager/device-manager
 	@rm -f services/api-gateway/api-gateway
+	@rm -f services/user-service/user-service
+	@rm -f services/telemetry-collector/telemetry-collector
 	@$(MAKE) dashboard-clean
 	@echo "✅ Nettoyage terminé!"
 
@@ -101,28 +107,58 @@ clean: ## Supprime les binaires et fichiers temporaires
 # DOCKER
 #==================================================================================
 
-up: ## Lance l'infrastructure Docker (Postgres, Redis, MQTT)
+up: ## Lance l'infrastructure Docker (Postgres, Redis, MQTT, Prometheus, Grafana)
 	@echo "🐳 Démarrage de l'infrastructure..."
-	@docker-compose up -d
+	@docker-compose up -d $(INFRA_SERVICES)
 	@echo "✅ Infrastructure démarrée!"
-	@echo "PostgreSQL: localhost:5432"
-	@echo "Redis: localhost:6379"
-	@echo "MQTT: localhost:1883"
+	@echo ""
+	@echo "📍 Services disponibles:"
+	@echo "  PostgreSQL:  localhost:5432"
+	@echo "  Redis:       localhost:6379"
+	@echo "  MQTT:        localhost:1883"
+	@echo "  Prometheus:  http://localhost:9090"
+	@echo "  Grafana:     http://localhost:3000 (admin/admin)"
+
+up-all: ## Lance TOUT via Docker (infra + services applicatifs)
+	@echo "🐳 Démarrage de toute la plateforme via Docker..."
+	@docker-compose up -d --build
+	@echo "✅ Plateforme démarrée!"
+	@echo ""
+	@echo "📍 Services disponibles:"
+	@echo "  API Gateway:         http://localhost:8080"
+	@echo "  GraphQL Playground:  http://localhost:8080/"
+	@echo "  Grafana:             http://localhost:3000"
 
 down: ## Arrête l'infrastructure Docker
 	@echo "🛑 Arrêt de l'infrastructure..."
 	@docker-compose down
 	@echo "✅ Infrastructure arrêtée!"
 
-logs: ## Affiche les logs Docker
+down-all: ## Arrête tout et supprime les volumes
+	@echo "🛑 Arrêt complet et nettoyage..."
+	@docker-compose down -v
+	@echo "✅ Tout arrêté et volumes supprimés!"
+
+logs: ## Affiche les logs Docker (tous les services)
 	@docker-compose logs -f
+
+logs-infra: ## Affiche les logs de l'infrastructure uniquement
+	@docker-compose logs -f $(INFRA_SERVICES)
+
+logs-services: ## Affiche les logs des services applicatifs
+	@docker-compose logs -f api-gateway device-manager user-service telemetry-collector
 
 status: ## Affiche le status de l'infrastructure
 	@docker-compose ps
 
 restart: ## Redémarre l'infrastructure
-	@docker-compose restart
+	@docker-compose restart $(INFRA_SERVICES)
 	@echo "✅ Infrastructure redémarrée!"
+
+rebuild: ## Rebuild et relance les services applicatifs
+	@echo "🔨 Rebuild des services..."
+	@docker-compose up -d --build api-gateway device-manager user-service telemetry-collector
+	@echo "✅ Services reconstruits et relancés!"
 
 #==================================================================================
 # SERVICES (DEV MODE)
@@ -137,8 +173,21 @@ api-gateway: ## Lance l'API Gateway
 	@cd services/api-gateway && go run main.go
 
 user-service: ## Lance le User Service
-	@echo "Démarrage du User Service..."
+	@echo "🔐 Démarrage du User Service..."
 	@cd services/user-service && go run main.go
+
+telemetry-collector: ## Lance le Telemetry Collector (MQTT → TimescaleDB)
+	@echo "📡 Démarrage du Telemetry Collector..."
+	@cd services/telemetry-collector && go run main.go
+
+simulate: ## Simule des devices IoT envoyant des données MQTT
+	@echo "🎮 Démarrage du simulateur de devices..."
+	@echo "   (Ctrl+C pour arrêter)"
+	@cd $(SCRIPTS_DIR) && go run simulate-devices.go -devices 5 -interval 3
+
+simulate-heavy: ## Simule beaucoup de devices (stress test)
+	@echo "🎮 Démarrage du simulateur (mode stress)..."
+	@cd $(SCRIPTS_DIR) && go run simulate-devices.go -devices 50 -interval 1 -duration 60
 
 dashboard: ## Lance le Dashboard (dev mode avec HMR)
 	@echo "🌐 Démarrage du Dashboard..."
@@ -146,18 +195,25 @@ dashboard: ## Lance le Dashboard (dev mode avec HMR)
 	@cd $(DASHBOARD_DIR) && npm run dev
 
 dev: up ## Lance infra + services backend (sans dashboard)
-	@echo "Démarrage complet de la plateforme..."
+	@echo "🚀 Démarrage de la plateforme (mode dev)..."
 	@echo ""
 	@echo "⏳ Attente de l'infrastructure Docker..."
 	@sleep 5
 	@echo "✅ Infrastructure prête!"
+	@echo ""
+	@echo "📍 Services qui vont démarrer:"
+	@echo "  - Device Manager:      localhost:8081 (gRPC)"
+	@echo "  - User Service:        localhost:8082 (gRPC)"
+	@echo "  - Telemetry Collector: localhost:8083 (gRPC + MQTT)"
+	@echo "  - API Gateway:         http://localhost:8080 (GraphQL)"
 	@echo ""
 	@echo "⚠️  Utilise Ctrl+C pour arrêter tous les services."
 	@echo ""
 	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
 	$(MAKE) device-manager & \
 	(sleep 2 && $(MAKE) user-service) & \
-	(sleep 4 && $(MAKE) api-gateway) & \
+	(sleep 3 && $(MAKE) telemetry-collector) & \
+	(sleep 5 && $(MAKE) api-gateway) & \
 	wait
 
 dev-full: up ## Lance TOUT: infra + services + dashboard
@@ -168,17 +224,25 @@ dev-full: up ## Lance TOUT: infra + services + dashboard
 	@echo "✅ Infrastructure prête!"
 	@echo ""
 	@echo "📍 Services:"
-	@echo "  - API Gateway: http://localhost:8080"
-	@echo "  - Dashboard:   http://localhost:5173"
+	@echo "  - API Gateway:         http://localhost:8080"
+	@echo "  - GraphQL Playground:  http://localhost:8080/"
+	@echo "  - Dashboard:           http://localhost:5173"
+	@echo "  - Grafana:             http://localhost:3000"
 	@echo ""
 	@echo "⚠️  Utilise Ctrl+C pour arrêter tous les services."
 	@echo ""
 	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
 	$(MAKE) device-manager & \
 	(sleep 2 && $(MAKE) user-service) & \
-	(sleep 4 && $(MAKE) api-gateway) & \
-	(sleep 6 && $(MAKE) dashboard) & \
+	(sleep 3 && $(MAKE) telemetry-collector) & \
+	(sleep 5 && $(MAKE) api-gateway) & \
+	(sleep 7 && $(MAKE) dashboard) & \
 	wait
+
+dev-with-sim: dev ## Lance dev + simulateur de devices (dans un autre terminal)
+	@echo ""
+	@echo "💡 Pour lancer le simulateur dans un autre terminal:"
+	@echo "   make simulate"
 
 #==================================================================================
 # TESTS
@@ -257,6 +321,7 @@ db-migrate: ## Lance les migrations PostgreSQL
 	@echo "🗄️  Lancement des migrations..."
 	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/001_create_devices_table.sql
 	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/002_create_users_table.sql
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/003_create_telemetry_tables.sql
 	@echo "✅ Migrations terminées!"
 
 db-reset: ## Réinitialise la base de données

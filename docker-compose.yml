@@ -90,6 +90,102 @@ services:
       timeout: 5s
       retries: 5
 
+  # ============================================
+  # APPLICATION SERVICES
+  # ============================================
+
+  # API Gateway - GraphQL entry point
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: iot-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DEVICE_MANAGER_ADDR: "device-manager:8081"
+      USER_SERVICE_ADDR: "user-service:8082"
+      TELEMETRY_SERVICE_ADDR: "telemetry-collector:8083"
+      JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-in-production}"
+    depends_on:
+      device-manager:
+        condition: service_started
+      user-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Device Manager - Device CRUD operations
+  device-manager:
+    build:
+      context: ./services/device-manager
+      dockerfile: Dockerfile
+    container_name: iot-device-manager
+    ports:
+      - "8081:8081"
+    environment:
+      DEVICE_MANAGER_PORT: "8081"
+      STORAGE_TYPE: "postgres"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_NAME: "iot_platform"
+      DB_USER: "iot_user"
+      DB_PASSWORD: "iot_password"
+      DB_SSLMODE: "disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # User Service - Authentication & authorization
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: iot-user-service
+    ports:
+      - "8082:8082"
+    environment:
+      USER_SERVICE_PORT: "8082"
+      STORAGE_TYPE: "postgres"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_NAME: "iot_platform"
+      DB_USER: "iot_user"
+      DB_PASSWORD: "iot_password"
+      DB_SSLMODE: "disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Telemetry Collector - MQTT ingestion & time-series storage
+  telemetry-collector:
+    build:
+      context: ./services/telemetry-collector
+      dockerfile: Dockerfile
+    container_name: iot-telemetry-collector
+    ports:
+      - "8083:8083"
+    environment:
+      TELEMETRY_GRPC_PORT: "8083"
+      MQTT_BROKER: "tcp://mosquitto:1883"
+      MQTT_CLIENT_ID: "telemetry-collector"
+      MQTT_TOPIC: "devices/+/telemetry"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_NAME: "iot_platform"
+      DB_USER: "iot_user"
+      DB_PASSWORD: "iot_password"
+      DB_SSLMODE: "disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:

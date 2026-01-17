@@ -48,4 +48,12 @@ protoc \
   --go-grpc_opt=paths=source_relative \
   user/user.proto
 
+# Generate telemetry proto
+protoc \
+  --go_out=. \
+  --go_opt=paths=source_relative \
+  --go-grpc_out=. \
+  --go-grpc_opt=paths=source_relative \
+  telemetry/telemetry.proto
+
 echo "✅ Code generated successfully in shared/proto/"

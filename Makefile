@@ -1,4 +1,4 @@
-.PHONY: help setup generate clean build dev test docs-dev docs-build docs-serve docs-clean
+.PHONY: help start dev infra services test build clean
 
 # Variables
 SERVICES := device-manager api-gateway user-service telemetry-collector
@@ -6,10 +6,13 @@ PROTO_DIR := shared/proto
 BIN_DIR := bin
 DASHBOARD_DIR := frontends/dashboard
 SCRIPTS_DIR := scripts
-MAKEFILE := Makefile
+MIGRATIONS_DIR := infrastructure/database/migrations
 
 # Infrastructure services (Docker)
 INFRA_SERVICES := postgres redis mosquitto prometheus grafana
+
+# Database migrations directory
+# Migrations are auto-discovered from files matching [0-9]*.sql (excluding 000_)
 
 # Load .env file if it exists
 -include .env
@@ -25,103 +28,73 @@ help: ## Affiche l'aide
 	@echo "║                 IoT Platform - Commandes Make                  ║"
 	@echo "╚════════════════════════════════════════════════════════════════╝"
 	@echo ""
-	@echo "📦 SETUP & GÉNÉRATION"
-	@grep -E '^(setup|generate|generate-proto|generate-graphql):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "🚀 DÉMARRAGE RAPIDE"
+	@echo "  \033[36mmake dev\033[0m              Développement (infra Docker + services locaux)"
+	@echo "  \033[36mmake start\033[0m            Tout en Docker (infra + services)"
 	@echo ""
-	@echo "🔨 BUILD & CLEAN"
-	@grep -E '^(build|clean):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "🐳 INFRASTRUCTURE (Postgres, Redis, MQTT, Prometheus, Grafana)"
+	@echo "  \033[36minfra\033[0m                 Démarre l'infrastructure"
+	@echo "  \033[36minfra-down\033[0m            Arrête (conserve les données)"
+	@echo "  \033[36minfra-destroy\033[0m         Arrête et SUPPRIME les données"
+	@echo "  \033[36minfra-logs\033[0m            Logs de l'infrastructure"
+	@echo "  \033[36minfra-status\033[0m          Statut des containers"
 	@echo ""
-	@echo "🐳 DOCKER"
-	@grep -E '^(up|up-all|down|down-all|logs|logs-infra|logs-services|status|restart|rebuild):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "🗄️  BASE DE DONNÉES"
+	@echo "  \033[36mdb-migrate\033[0m            Applique les migrations (avec suivi)"
+	@echo "  \033[36mdb-migrations\033[0m         Affiche l'état des migrations"
+	@echo "  \033[36mdb-reset\033[0m              Réinitialise (SUPPRIME les données)"
+	@echo "  \033[36mdb-status\033[0m             Affiche l'état des tables"
 	@echo ""
-	@echo "🚀 SERVICES (DEV MODE)"
-	@grep -E '^(device-manager|api-gateway|user-service|telemetry-collector|dashboard|dev|dev-full|simulate):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "💻 DÉVELOPPEMENT (services en local, infra Docker)"
+	@echo "  \033[36mdev\033[0m                   Infra + migrations + services Go"
+	@echo "  \033[36mdev-dashboard\033[0m         Dev + dashboard React"
+	@echo "  \033[36mdev-api\033[0m               API Gateway seul"
+	@echo "  \033[36mdev-devices\033[0m           Device Manager seul"
+	@echo "  \033[36mdev-users\033[0m             User Service seul"
+	@echo "  \033[36mdev-telemetry\033[0m         Telemetry Collector seul"
+	@echo ""
+	@echo "📦 SERVICES DOCKER (api-gateway, device-manager, user-service, telemetry-collector)"
+	@echo "  \033[36mservices\033[0m              Démarre les services (nécessite infra)"
+	@echo "  \033[36mservices-down\033[0m         Arrête les services"
+	@echo "  \033[36mservices-logs\033[0m         Logs des services"
+	@echo "  \033[36mservices-rebuild\033[0m      Rebuild et relance"
+	@echo ""
+	@echo "🎮 SIMULATION"
+	@echo "  \033[36msimulate\033[0m              5 devices, intervalle 3s"
+	@echo "  \033[36msimulate-heavy\033[0m        50 devices, 60s (stress test)"
 	@echo ""
 	@echo "🧪 TESTS"
-	@grep -E '^(test|test-unit|test-integration|test-e2e|test-all|test-security|test-device|test-user|test-api):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "  \033[36mtest\033[0m                  Tests unitaires"
+	@echo "  \033[36mtest-integration\033[0m      Tests d'intégration (nécessite DB)"
+	@echo "  \033[36mtest-e2e\033[0m              Tests end-to-end"
 	@echo ""
-	@echo "🗄️  DATABASE"
-	@grep -E '^(db-migrate|db-reset|db-status|sqlc-generate):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "🔨 BUILD & SETUP"
+	@echo "  \033[36msetup\033[0m                 Installe les outils"
+	@echo "  \033[36mgenerate\033[0m              Génère proto + GraphQL"
+	@echo "  \033[36mbuild\033[0m                 Compile les services"
+	@echo "  \033[36mclean\033[0m                 Nettoie"
+	@echo ""
+	@echo "🌐 DASHBOARD"
+	@echo "  \033[36mdashboard\033[0m             Mode dev"
+	@echo "  \033[36mdashboard-build\033[0m       Build production"
+	@echo "  \033[36mdashboard-lint\033[0m        Lint"
 	@echo ""
 	@echo "📚 DOCUMENTATION"
-	@grep -E '^(docs-dev|docs-build|docs-serve|docs-clean):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
-	@echo ""
-	@echo "🌐 WEB DASHBOARD"
-	@grep -E '^(dashboard-install|dashboard-dev|dashboard-build|dashboard-preview|dashboard-clean|dashboard-lint):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "  \033[36mdocs\033[0m                  Mode dev"
+	@echo "  \033[36mdocs-build\033[0m            Build"
 	@echo ""
 	@echo "🛠️  UTILS"
-	@grep -E '^(deps|fmt|lint):.*?## .*$$' $(MAKEFILE) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "  \033[36mfmt\033[0m                   Formate le code Go"
+	@echo "  \033[36mlint\033[0m                  Lint le code Go"
+	@echo "  \033[36mdeps\033[0m                  Met à jour les dépendances"
 	@echo ""
 
 #==================================================================================
-# SETUP & GÉNÉRATION
+# DÉMARRAGE RAPIDE
 #==================================================================================
 
-setup: ## Installe tous les outils nécessaires (Go + Node)
-	@echo "📦 Installation des outils..."
-	@command -v protoc >/dev/null 2>&1 || (echo "❌ protoc non installé. Installez-le avec: brew install protobuf" && exit 1)
-	@command -v node >/dev/null 2>&1 || (echo "❌ Node.js non installé. Installez-le avec: brew install node" && exit 1)
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-	go install github.com/99designs/gqlgen@latest
-	@echo "📦 Installation des dépendances du dashboard..."
-	@cd $(DASHBOARD_DIR) && npm install
-	@echo "✅ Setup terminé!"
-
-generate: generate-proto generate-graphql ## Génère tout le code (proto + GraphQL)
-
-generate-proto: ## Génère le code Protobuf
-	@echo "🔨 Génération du code Protobuf..."
-	@cd $(PROTO_DIR) && ./generate.sh
-	@echo "✅ Proto généré!"
-
-generate-graphql: ## Génère le code GraphQL
-	@echo "🔨 Génération du code GraphQL..."
-	@cd services/api-gateway && gqlgen generate
-	@echo "✅ GraphQL généré!"
-
-#==================================================================================
-# BUILD & CLEAN
-#==================================================================================
-
-build: ## Compile tous les services
-	@echo "🔨 Compilation de tous les services..."
-	@mkdir -p $(BIN_DIR)
-	@for service in $(SERVICES); do \
-		echo "  → Building $$service..."; \
-		cd services/$$service && go build -o ../../$(BIN_DIR)/$$service && cd ../..; \
-	done
-	@echo "✅ Build terminé! Binaires dans ./$(BIN_DIR)/"
-
-clean: ## Supprime les binaires et fichiers temporaires
-	@echo "🧹 Nettoyage..."
-	@rm -rf $(BIN_DIR)/
-	@rm -f services/device-manager/device-manager
-	@rm -f services/api-gateway/api-gateway
-	@rm -f services/user-service/user-service
-	@rm -f services/telemetry-collector/telemetry-collector
-	@$(MAKE) dashboard-clean
-	@echo "✅ Nettoyage terminé!"
-
-#==================================================================================
-# DOCKER
-#==================================================================================
-
-up: ## Lance l'infrastructure Docker (Postgres, Redis, MQTT, Prometheus, Grafana)
-	@echo "🐳 Démarrage de l'infrastructure..."
-	@docker-compose up -d $(INFRA_SERVICES)
-	@echo "✅ Infrastructure démarrée!"
+start: infra db-migrate services ## Tout en Docker (infra + services)
 	@echo ""
-	@echo "📍 Services disponibles:"
-	@echo "  PostgreSQL:  localhost:5432"
-	@echo "  Redis:       localhost:6379"
-	@echo "  MQTT:        localhost:1883"
-	@echo "  Prometheus:  http://localhost:9090"
-	@echo "  Grafana:     http://localhost:3000 (admin/admin)"
-
-up-all: ## Lance TOUT via Docker (infra + services applicatifs)
-	@echo "🐳 Démarrage de toute la plateforme via Docker..."
-	@docker-compose up -d --build
 	@echo "✅ Plateforme démarrée!"
 	@echo ""
 	@echo "📍 Services disponibles:"
@@ -129,294 +102,277 @@ up-all: ## Lance TOUT via Docker (infra + services applicatifs)
 	@echo "  GraphQL Playground:  http://localhost:8080/"
 	@echo "  Grafana:             http://localhost:3000"
 
-down: ## Arrête l'infrastructure Docker
-	@echo "🛑 Arrêt de l'infrastructure..."
-	@docker-compose down
-	@echo "✅ Infrastructure arrêtée!"
-
-down-all: ## Arrête tout et supprime les volumes
-	@echo "🛑 Arrêt complet et nettoyage..."
-	@docker-compose down -v
-	@echo "✅ Tout arrêté et volumes supprimés!"
-
-logs: ## Affiche les logs Docker (tous les services)
-	@docker-compose logs -f
-
-logs-infra: ## Affiche les logs de l'infrastructure uniquement
-	@docker-compose logs -f $(INFRA_SERVICES)
-
-logs-services: ## Affiche les logs des services applicatifs
-	@docker-compose logs -f api-gateway device-manager user-service telemetry-collector
-
-status: ## Affiche le status de l'infrastructure
-	@docker-compose ps
-
-restart: ## Redémarre l'infrastructure
-	@docker-compose restart $(INFRA_SERVICES)
-	@echo "✅ Infrastructure redémarrée!"
-
-rebuild: ## Rebuild et relance les services applicatifs
-	@echo "🔨 Rebuild des services..."
-	@docker-compose up -d --build api-gateway device-manager user-service telemetry-collector
-	@echo "✅ Services reconstruits et relancés!"
-
-#==================================================================================
-# SERVICES (DEV MODE)
-#==================================================================================
-
-device-manager: ## Lance le Device Manager
-	@echo "Démarrage du Device Manager..."
-	@cd services/device-manager && go run main.go
-
-api-gateway: ## Lance l'API Gateway
-	@echo "Démarrage de l'API Gateway..."
-	@cd services/api-gateway && go run main.go
-
-user-service: ## Lance le User Service
-	@echo "🔐 Démarrage du User Service..."
-	@cd services/user-service && go run main.go
-
-telemetry-collector: ## Lance le Telemetry Collector (MQTT → TimescaleDB)
-	@echo "📡 Démarrage du Telemetry Collector..."
-	@cd services/telemetry-collector && go run main.go
-
-simulate: ## Simule des devices IoT envoyant des données MQTT
-	@echo "🎮 Démarrage du simulateur de devices..."
-	@echo "   (Ctrl+C pour arrêter)"
-	@cd $(SCRIPTS_DIR) && go run simulate-devices.go -devices 5 -interval 3
-
-simulate-heavy: ## Simule beaucoup de devices (stress test)
-	@echo "🎮 Démarrage du simulateur (mode stress)..."
-	@cd $(SCRIPTS_DIR) && go run simulate-devices.go -devices 50 -interval 1 -duration 60
-
-dashboard: ## Lance le Dashboard (dev mode avec HMR)
-	@echo "🌐 Démarrage du Dashboard..."
-	@echo "📍 URL: http://localhost:5173"
-	@cd $(DASHBOARD_DIR) && npm run dev
-
-dev: up ## Lance infra + services backend (sans dashboard)
-	@echo "🚀 Démarrage de la plateforme (mode dev)..."
+dev: infra db-migrate ## Développement (infra Docker + services locaux)
 	@echo ""
-	@echo "⏳ Attente de l'infrastructure Docker..."
-	@sleep 5
-	@echo "✅ Infrastructure prête!"
+	@echo "🚀 Démarrage des services en mode développement..."
 	@echo ""
-	@echo "📍 Services qui vont démarrer:"
-	@echo "  - Device Manager:      localhost:8081 (gRPC)"
-	@echo "  - User Service:        localhost:8082 (gRPC)"
-	@echo "  - Telemetry Collector: localhost:8083 (gRPC + MQTT)"
-	@echo "  - API Gateway:         http://localhost:8080 (GraphQL)"
+	@echo "📍 Services:"
+	@echo "  Device Manager:      localhost:8081 (gRPC)"
+	@echo "  User Service:        localhost:8082 (gRPC)"
+	@echo "  Telemetry Collector: localhost:8083 (gRPC + MQTT)"
+	@echo "  API Gateway:         http://localhost:8080 (GraphQL)"
 	@echo ""
-	@echo "⚠️  Utilise Ctrl+C pour arrêter tous les services."
+	@echo "⚠️  Ctrl+C pour arrêter"
 	@echo ""
 	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
-	$(MAKE) device-manager & \
-	(sleep 2 && $(MAKE) user-service) & \
-	(sleep 3 && $(MAKE) telemetry-collector) & \
-	(sleep 5 && $(MAKE) api-gateway) & \
+	(cd services/device-manager && go run main.go) & \
+	(sleep 2 && cd services/user-service && go run main.go) & \
+	(sleep 3 && cd services/telemetry-collector && go run main.go) & \
+	(sleep 5 && cd services/api-gateway && go run main.go) & \
 	wait
 
-dev-full: up ## Lance TOUT: infra + services + dashboard
-	@echo "🚀 Démarrage COMPLET de la plateforme..."
+dev-dashboard: infra db-migrate ## Dev + dashboard React
 	@echo ""
-	@echo "⏳ Attente de l'infrastructure Docker..."
-	@sleep 5
+	@echo "🚀 Démarrage complet (services + dashboard)..."
+	@echo ""
+	@echo "📍 Services:"
+	@echo "  API Gateway:  http://localhost:8080"
+	@echo "  Dashboard:    http://localhost:5173"
+	@echo "  Grafana:      http://localhost:3000"
+	@echo ""
+	@echo "⚠️  Ctrl+C pour arrêter"
+	@echo ""
+	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
+	(cd services/device-manager && go run main.go) & \
+	(sleep 2 && cd services/user-service && go run main.go) & \
+	(sleep 3 && cd services/telemetry-collector && go run main.go) & \
+	(sleep 5 && cd services/api-gateway && go run main.go) & \
+	(sleep 7 && cd $(DASHBOARD_DIR) && npm run dev) & \
+	wait
+
+# Services individuels (pour debug)
+dev-api: ## API Gateway seul
+	@cd services/api-gateway && go run main.go
+
+dev-devices: ## Device Manager seul
+	@cd services/device-manager && go run main.go
+
+dev-users: ## User Service seul
+	@cd services/user-service && go run main.go
+
+dev-telemetry: ## Telemetry Collector seul
+	@cd services/telemetry-collector && go run main.go
+
+#==================================================================================
+# INFRASTRUCTURE
+#==================================================================================
+
+infra: ## Démarre l'infrastructure
+	@echo "🐳 Démarrage de l'infrastructure..."
+	@docker-compose up -d $(INFRA_SERVICES)
+	@echo "⏳ Attente que PostgreSQL soit prêt..."
+	@until docker-compose exec -T postgres pg_isready -U iot_user -d iot_platform >/dev/null 2>&1; do sleep 1; done
 	@echo "✅ Infrastructure prête!"
 	@echo ""
 	@echo "📍 Services:"
-	@echo "  - API Gateway:         http://localhost:8080"
-	@echo "  - GraphQL Playground:  http://localhost:8080/"
-	@echo "  - Dashboard:           http://localhost:5173"
-	@echo "  - Grafana:             http://localhost:3000"
-	@echo ""
-	@echo "⚠️  Utilise Ctrl+C pour arrêter tous les services."
-	@echo ""
-	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
-	$(MAKE) device-manager & \
-	(sleep 2 && $(MAKE) user-service) & \
-	(sleep 3 && $(MAKE) telemetry-collector) & \
-	(sleep 5 && $(MAKE) api-gateway) & \
-	(sleep 7 && $(MAKE) dashboard) & \
-	wait
+	@echo "  PostgreSQL:  localhost:5432"
+	@echo "  Redis:       localhost:6379"
+	@echo "  MQTT:        localhost:1883"
+	@echo "  Prometheus:  http://localhost:9090"
+	@echo "  Grafana:     http://localhost:3000"
 
-dev-with-sim: dev ## Lance dev + simulateur de devices (dans un autre terminal)
+infra-down: ## Arrête l'infrastructure (conserve les données)
+	@echo "🛑 Arrêt de l'infrastructure..."
+	@docker-compose stop $(INFRA_SERVICES)
+	@echo "✅ Infrastructure arrêtée (données conservées)"
+
+infra-destroy: ## Arrête et SUPPRIME les données
+	@echo "⚠️  Cela va SUPPRIMER toutes les données!"
+	@read -p "   Continuer? [y/N] " confirm && [ "$$confirm" = "y" ] || (echo "Annulé." && exit 1)
+	@docker-compose down -v
+	@echo "✅ Infrastructure supprimée"
+
+infra-logs: ## Logs de l'infrastructure
+	@docker-compose logs -f $(INFRA_SERVICES)
+
+infra-status: ## Statut des containers
+	@docker-compose ps $(INFRA_SERVICES)
+
+#==================================================================================
+# SERVICES DOCKER
+#==================================================================================
+
+services: ## Démarre les services (nécessite infra)
+	@echo "📦 Démarrage des services..."
+	@docker-compose up -d --build api-gateway device-manager user-service telemetry-collector
+	@echo "✅ Services démarrés!"
+
+services-down: ## Arrête les services
+	@echo "🛑 Arrêt des services..."
+	@docker-compose stop api-gateway device-manager user-service telemetry-collector
+	@echo "✅ Services arrêtés"
+
+services-logs: ## Logs des services
+	@docker-compose logs -f api-gateway device-manager user-service telemetry-collector
+
+services-rebuild: ## Rebuild et relance
+	@echo "🔨 Rebuild des services..."
+	@docker-compose up -d --build api-gateway device-manager user-service telemetry-collector
+	@echo "✅ Services reconstruits!"
+
+#==================================================================================
+# BASE DE DONNÉES
+#==================================================================================
+
+db-migrate: ## Applique les migrations (avec suivi)
+	@echo "🗄️  Application des migrations..."
+	@# Bootstrap: create schema_migrations table (idempotent)
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < $(MIGRATIONS_DIR)/000_create_schema_migrations.sql >/dev/null 2>&1
+	@# Auto-discover and apply migrations (sorted by filename, excluding 000_)
+	@for file in $$(ls $(MIGRATIONS_DIR)/[0-9]*.sql 2>/dev/null | grep -v '000_' | sort); do \
+		migration=$$(basename "$$file" .sql); \
+		if docker-compose exec -T postgres psql -U iot_user -d iot_platform -tAc \
+			"SELECT 1 FROM schema_migrations WHERE version = '$$migration'" 2>/dev/null | grep -q 1; then \
+			echo "  ⏭️  $$migration (déjà appliquée)"; \
+		else \
+			echo "  📦 $$migration..."; \
+			docker-compose exec -T postgres psql -U iot_user -d iot_platform < "$$file" || exit 1; \
+			docker-compose exec -T postgres psql -U iot_user -d iot_platform -c \
+				"INSERT INTO schema_migrations (version) VALUES ('$$migration')" >/dev/null; \
+		fi; \
+	done
+	@echo "✅ Migrations à jour!"
+
+db-reset: ## Réinitialise (SUPPRIME les données)
+	@echo "⚠️  Réinitialisation de la base de données..."
+	@echo "   Cela va SUPPRIMER toutes les données!"
+	@read -p "   Continuer? [y/N] " confirm && [ "$$confirm" = "y" ] || (echo "Annulé." && exit 1)
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	@echo "📦 Ré-application des migrations..."
+	@$(MAKE) db-migrate
+	@echo "✅ Base réinitialisée!"
+
+db-status: ## Affiche l'état des tables et données
+	@echo "🔍 État de la base de données..."
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform -c "\dt"
 	@echo ""
-	@echo "💡 Pour lancer le simulateur dans un autre terminal:"
-	@echo "   make simulate"
+	@docker-compose exec -T postgres psql -U iot_user -d iot_platform -c "SELECT 'devices' as table_name, COUNT(*) FROM devices UNION ALL SELECT 'users', COUNT(*) FROM users UNION ALL SELECT 'device_telemetry', COUNT(*) FROM device_telemetry;" 2>/dev/null || echo "Tables non créées - lancez 'make db-migrate'"
+
+db-migrations: ## Affiche l'état des migrations
+	@echo "🔍 État des migrations..."
+	@echo ""
+	@for file in $$(ls $(MIGRATIONS_DIR)/[0-9]*.sql 2>/dev/null | grep -v '000_' | sort); do \
+		migration=$$(basename "$$file" .sql); \
+		if docker-compose exec -T postgres psql -U iot_user -d iot_platform -tAc \
+			"SELECT applied_at FROM schema_migrations WHERE version = '$$migration'" 2>/dev/null | grep -q .; then \
+			applied=$$(docker-compose exec -T postgres psql -U iot_user -d iot_platform -tAc \
+				"SELECT applied_at FROM schema_migrations WHERE version = '$$migration'" 2>/dev/null); \
+			echo "  ✅ $$migration (appliquée: $$applied)"; \
+		else \
+			echo "  ⏳ $$migration (en attente)"; \
+		fi; \
+	done
+
+#==================================================================================
+# SIMULATION
+#==================================================================================
+
+simulate: ## 5 devices, intervalle 3s
+	@echo "🎮 Démarrage du simulateur..."
+	@echo "   (Ctrl+C pour arrêter)"
+	@cd $(SCRIPTS_DIR) && go run simulate-devices.go -devices 5 -interval 3
+
+simulate-heavy: ## 50 devices, 60s (stress test)
+	@echo "🎮 Stress test (50 devices, 60s)..."
+	@cd $(SCRIPTS_DIR) && go run simulate-devices.go -devices 50 -interval 1 -duration 60
 
 #==================================================================================
 # TESTS
 #==================================================================================
 
-.PHONY: test test-unit test-integration test-e2e test-all \
-        test-device test-user test-api test-security
+test: ## Tests unitaires
+	@echo "🧪 Tests unitaires..."
+	@for service in $(SERVICES); do \
+		echo "  → $$service"; \
+		(cd services/$$service && go test -tags=unit ./... -v) || exit 1; \
+	done
 
-# ------------------------------------------------------------------------------
-# UNIT TESTS (~5s)
-# ------------------------------------------------------------------------------
-
-test-unit: ## Tests unitaires (parallèle, rapide)
-	@echo "🧪 Unit tests..."
-	@$(MAKE) -j3 test-device-unit test-user-unit test-api-unit
-
-test-device-unit: ## Tests unitaires Device Manager
-	@cd services/device-manager && go test -tags=unit ./... -v
-
-test-user-unit: ## Tests unitaires User Service
-	@cd services/user-service && go test -tags=unit ./... -v
-
-test-api-unit: ## Tests unitaires API Gateway
-	@cd services/api-gateway && go test -tags=unit ./... -v
-
-# ------------------------------------------------------------------------------
-# INTEGRATION TESTS (~30s, nécessite DB)
-# ------------------------------------------------------------------------------
-
-test-integration: ## Tests d'intégration PostgreSQL
-	@echo "🗄️  Integration tests..."
-	@$(MAKE) test-device-db test-user-db
-
-test-device-db: ## Tests DB Device Manager
+test-integration: ## Tests d'intégration (nécessite DB)
+	@echo "🗄️  Tests d'intégration..."
 	@cd services/device-manager && go test -tags=integration ./storage/... -v
-
-test-user-db: ## Tests DB User Service
 	@cd services/user-service && go test -tags=integration ./storage/... -v
 
-# ------------------------------------------------------------------------------
-# E2E TESTS (~1-2min, full system)
-# ------------------------------------------------------------------------------
-
-test-e2e: ## Tests end-to-end (tous les services)
-	@echo "🎯 E2E tests..."
-	@echo "⚠️  Assurez-vous que PostgreSQL tourne: make up && make db-migrate"
+test-e2e: ## Tests end-to-end
+	@echo "🎯 Tests E2E..."
+	@echo "⚠️  Assurez-vous que la plateforme tourne: make start"
 	@cd tests/e2e && go test -tags=e2e -v -timeout=5m ./...
 
-# ------------------------------------------------------------------------------
-# SECURITY TESTS
-# ------------------------------------------------------------------------------
-
-test-security: ## Tests de sécurité JWT
-	@echo "🛡️  Security tests..."
-	@cd services/api-gateway && go test -tags=unit ./auth/... -v -run "Security"
-
-# ------------------------------------------------------------------------------
-# CI/CD
-# ------------------------------------------------------------------------------
-
-test-all: test-unit test-integration test-e2e ## Tous les tests (CI)
-
-# ------------------------------------------------------------------------------
-# LEGACY (compatibility)
-# ------------------------------------------------------------------------------
-
-test-device: test-device-unit ## Alias: tests Device Manager
-test-user: test-user-unit ## Alias: tests User Service
-test-api: test-api-unit ## Alias: tests API Gateway
-
 #==================================================================================
-# DATABASE
+# BUILD & SETUP
 #==================================================================================
 
-db-migrate: ## Lance les migrations PostgreSQL
-	@echo "🗄️  Lancement des migrations..."
-	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/001_create_devices_table.sql
-	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/002_create_users_table.sql
-	@docker-compose exec -T postgres psql -U iot_user -d iot_platform < infrastructure/database/migrations/003_create_telemetry_tables.sql
-	@echo "✅ Migrations terminées!"
+setup: ## Installe les outils
+	@echo "📦 Installation des outils..."
+	@command -v protoc >/dev/null 2>&1 || (echo "❌ protoc requis: brew install protobuf" && exit 1)
+	@command -v node >/dev/null 2>&1 || (echo "❌ Node.js requis: brew install node" && exit 1)
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	go install github.com/99designs/gqlgen@latest
+	@cd $(DASHBOARD_DIR) && npm install
+	@echo "✅ Setup terminé!"
 
-db-reset: ## Réinitialise la base de données
-	@echo "🗑️  Réinitialisation de la base..."
-	@docker-compose exec -T postgres psql -U iot_user -d iot_platform -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-	@$(MAKE) db-migrate
-	@echo "✅ Base réinitialisée!"
+generate: ## Génère proto + GraphQL
+	@echo "🔨 Génération du code..."
+	@cd $(PROTO_DIR) && ./generate.sh
+	@cd services/api-gateway && gqlgen generate
+	@echo "✅ Code généré!"
 
-db-status: ## Vérifie le statut de la base
-	@echo "🔍 Statut de la base de données..."
-	@docker-compose exec -T postgres psql -U iot_user -d iot_platform -c "\dt"
-
-sqlc-generate: ## Génère le code sqlc
-	@echo "🔨 Génération du code sqlc..."
-	@cd services/device-manager && sqlc generate
-	@cd services/user-service && sqlc generate
-	@echo "✅ Code sqlc généré!"
-
-#==================================================================================
-# UTILS
-#==================================================================================
-
-deps: ## Met à jour les dépendances Go
-	@echo "📦 Mise à jour des dépendances..."
+build: ## Compile les services
+	@echo "🔨 Compilation..."
+	@mkdir -p $(BIN_DIR)
 	@for service in $(SERVICES); do \
 		echo "  → $$service"; \
-		(cd services/$$service && go mod tidy) || exit 1; \
+		(cd services/$$service && go build -o ../../$(BIN_DIR)/$$service) || exit 1; \
 	done
-	@echo "✅ Dépendances à jour!"
+	@echo "✅ Binaires dans ./$(BIN_DIR)/"
 
-fmt: ## Formate le code Go
-	@echo "✨ Formatage du code..."
-	@gofmt -w services/
+clean: ## Nettoie
+	@echo "🧹 Nettoyage..."
+	@rm -rf $(BIN_DIR)/
+	@rm -rf $(DASHBOARD_DIR)/dist $(DASHBOARD_DIR)/node_modules
+	@echo "✅ Nettoyé!"
 
-lint: ## Lint le code (nécessite golangci-lint)
-	@echo "🔍 Linting..."
-	@for service in $(SERVICES); do \
-		echo "  → $$service"; \
-		(cd services/$$service && golangci-lint run) || exit 1; \
-	done
+#==================================================================================
+# DASHBOARD
+#==================================================================================
+
+dashboard: ## Mode dev
+	@echo "🌐 Dashboard: http://localhost:5173"
+	@cd $(DASHBOARD_DIR) && npm run dev
+
+dashboard-build: ## Build production
+	@cd $(DASHBOARD_DIR) && npm run build
+	@echo "✅ Build dans $(DASHBOARD_DIR)/dist/"
+
+dashboard-lint: ## Lint
+	@cd $(DASHBOARD_DIR) && npm run lint
 
 #==================================================================================
 # DOCUMENTATION
 #==================================================================================
 
-docs-dev: ## Lance le serveur de documentation en mode dev
-	@echo "📚 Démarrage de la documentation..."
-	@echo "🌐 Disponible sur: http://localhost:3001"
-	@echo ""
+docs: ## Mode dev
+	@echo "📚 Documentation: http://localhost:3001"
 	@cd docs && npm start -- --port 3001
 
-docs-build: ## Build la documentation statique pour production
-	@echo "🔨 Build de la documentation..."
+docs-build: ## Build
 	@cd docs && npm run build
-	@echo "✅ Documentation buildée dans docs/build/"
-
-docs-serve: docs-build ## Sert la documentation buildée (test avant deploy)
-	@echo "📖 Serving documentation buildée..."
-	@echo "🌐 Disponible sur: http://localhost:3001"
-	@cd docs && npm run serve -- --port 3001 --no-open
-
-docs-clean: ## Nettoie les fichiers de build de la documentation
-	@echo "🧹 Nettoyage de la documentation..."
-	@rm -rf docs/build docs/.docusaurus
-	@echo "✅ Documentation nettoyée"
+	@echo "✅ Build dans docs/build/"
 
 #==================================================================================
-# WEB DASHBOARD
+# UTILS
 #==================================================================================
 
-dashboard-install: ## Installe les dépendances du dashboard
-	@echo "📦 Installation des dépendances du dashboard..."
-	@cd $(DASHBOARD_DIR) && npm install
-	@echo "✅ Dépendances installées!"
+fmt: ## Formate le code Go
+	@gofmt -w services/
 
-dashboard-dev: ## Lance le dashboard en mode développement
-	@echo "🌐 Démarrage du dashboard..."
-	@echo "📍 URL: http://localhost:5173"
-	@cd $(DASHBOARD_DIR) && npm run dev
+lint: ## Lint le code Go
+	@for service in $(SERVICES); do \
+		(cd services/$$service && golangci-lint run) || exit 1; \
+	done
 
-dashboard-build: ## Build le dashboard pour production
-	@echo "🔨 Build du dashboard..."
-	@cd $(DASHBOARD_DIR) && npm run build
-	@echo "✅ Dashboard buildé dans $(DASHBOARD_DIR)/dist/"
-
-dashboard-preview: dashboard-build ## Preview du build de production
-	@echo "👀 Preview du dashboard..."
-	@cd $(DASHBOARD_DIR) && npm run preview
-
-dashboard-clean: ## Nettoie les fichiers de build du dashboard
-	@echo "🧹 Nettoyage du dashboard..."
-	@rm -rf $(DASHBOARD_DIR)/dist $(DASHBOARD_DIR)/node_modules
-	@echo "✅ Dashboard nettoyé"
-
-dashboard-lint: ## Lint le code du dashboard
-	@echo "🔍 Linting du dashboard..."
-	@cd $(DASHBOARD_DIR) && npm run lint
-	@echo "✅ Lint terminé!"
+deps: ## Met à jour les dépendances
+	@for service in $(SERVICES); do \
+		(cd services/$$service && go mod tidy) || exit 1; \
+	done
+	@echo "✅ Dépendances à jour!"

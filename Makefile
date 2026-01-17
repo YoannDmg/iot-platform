@@ -31,6 +31,7 @@ help: ## Affiche l'aide
 	@echo "🚀 DÉMARRAGE RAPIDE"
 	@echo "  \033[36mmake dev\033[0m              Développement (infra Docker + services locaux)"
 	@echo "  \033[36mmake start\033[0m            Tout en Docker (infra + services)"
+	@echo "  \033[36mmake down\033[0m             Arrête tout (conserve les données)"
 	@echo ""
 	@echo "🐳 INFRASTRUCTURE (Postgres, Redis, MQTT, Prometheus, Grafana)"
 	@echo "  \033[36minfra\033[0m                 Démarre l'infrastructure"
@@ -101,6 +102,11 @@ start: infra db-migrate services ## Tout en Docker (infra + services)
 	@echo "  API Gateway:         http://localhost:8080"
 	@echo "  GraphQL Playground:  http://localhost:8080/"
 	@echo "  Grafana:             http://localhost:3000"
+
+down: ## Arrête tout (conserve les données)
+	@echo "🛑 Arrêt de la plateforme..."
+	@docker-compose stop
+	@echo "✅ Plateforme arrêtée (données conservées)"
 
 dev: infra db-migrate ## Développement (infra Docker + services locaux)
 	@echo ""

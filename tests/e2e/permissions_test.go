@@ -3,8 +3,10 @@
 package e2e
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 // TestE2E_RBACPermissions tests role-based access control between users and admins.
@@ -17,6 +19,11 @@ func TestE2E_RBACPermissions(t *testing.T) {
 	var userToken string
 	var adminToken string
 	var userDeviceID string
+
+	// Unique emails per test run
+	uniqueID := time.Now().UnixNano()
+	regularUserEmail := fmt.Sprintf("regular-user-%d@example.com", uniqueID)
+	adminUserEmail := fmt.Sprintf("admin-user-%d@example.com", uniqueID)
 
 	// Setup: Create regular user
 	t.Run("setup_regular_user", func(t *testing.T) {
@@ -34,7 +41,7 @@ func TestE2E_RBACPermissions(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "regular-user@example.com",
+					"email":    regularUserEmail,
 					"password": "UserPassword123!",
 					"name":     "Regular User",
 				},
@@ -61,7 +68,7 @@ func TestE2E_RBACPermissions(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "regular-user@example.com",
+					"email":    regularUserEmail,
 					"password": "UserPassword123!",
 				},
 			},
@@ -91,7 +98,7 @@ func TestE2E_RBACPermissions(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "admin-user@example.com",
+					"email":    adminUserEmail,
 					"password": "AdminPassword123!",
 					"name":     "Admin User",
 					"role":     "admin",
@@ -119,7 +126,7 @@ func TestE2E_RBACPermissions(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "admin-user@example.com",
+					"email":    adminUserEmail,
 					"password": "AdminPassword123!",
 				},
 			},
@@ -368,6 +375,10 @@ func TestE2E_AdminUserManagement(t *testing.T) {
 
 	var adminToken string
 
+	// Unique email per test run
+	uniqueID := time.Now().UnixNano()
+	adminEmail := fmt.Sprintf("user-admin-%d@example.com", uniqueID)
+
 	// Create admin
 	t.Run("setup_admin", func(t *testing.T) {
 		registerMutation := map[string]interface{}{
@@ -381,7 +392,7 @@ func TestE2E_AdminUserManagement(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "user-admin@example.com",
+					"email":    adminEmail,
 					"password": "AdminPass123!",
 					"name":     "User Admin",
 					"role":     "admin",
@@ -400,7 +411,7 @@ func TestE2E_AdminUserManagement(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "user-admin@example.com",
+					"email":    adminEmail,
 					"password": "AdminPass123!",
 				},
 			},

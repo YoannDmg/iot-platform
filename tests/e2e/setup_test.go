@@ -18,19 +18,23 @@ import (
 // TestEnvironment holds the test environment with all running services.
 type TestEnvironment struct {
 	// Service addresses
-	DeviceManagerAddr string
-	UserServiceAddr   string
-	APIGatewayAddr    string
+	DeviceManagerAddr      string
+	UserServiceAddr        string
+	APIGatewayAddr         string
+	TelemetryCollectorAddr string
+	MQTTBrokerAddr         string
 
 	// Running processes
-	deviceManagerCmd *exec.Cmd
-	userServiceCmd   *exec.Cmd
-	apiGatewayCmd    *exec.Cmd
+	deviceManagerCmd      *exec.Cmd
+	userServiceCmd        *exec.Cmd
+	apiGatewayCmd         *exec.Cmd
+	telemetryCollectorCmd *exec.Cmd
 
 	// Output buffers for debugging
-	deviceManagerLog *bytes.Buffer
-	userServiceLog   *bytes.Buffer
-	apiGatewayLog    *bytes.Buffer
+	deviceManagerLog      *bytes.Buffer
+	userServiceLog        *bytes.Buffer
+	apiGatewayLog         *bytes.Buffer
+	telemetryCollectorLog *bytes.Buffer
 
 	// Cleanup function
 	cleanup func()
@@ -47,13 +51,17 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 	}
 
 	// Use different ports for E2E tests to avoid conflicts
+	// Note: MQTT broker runs via docker-compose on standard port 1883
 	env := &TestEnvironment{
-		DeviceManagerAddr: "localhost:18081",
-		UserServiceAddr:   "localhost:18083",
-		APIGatewayAddr:    "localhost:18080",
-		deviceManagerLog:  &bytes.Buffer{},
-		userServiceLog:    &bytes.Buffer{},
-		apiGatewayLog:     &bytes.Buffer{},
+		DeviceManagerAddr:      "localhost:18081",
+		UserServiceAddr:        "localhost:18083",
+		APIGatewayAddr:         "localhost:18080",
+		TelemetryCollectorAddr: "localhost:18084",
+		MQTTBrokerAddr:         "localhost:1883",
+		deviceManagerLog:       &bytes.Buffer{},
+		userServiceLog:         &bytes.Buffer{},
+		apiGatewayLog:          &bytes.Buffer{},
+		telemetryCollectorLog:  &bytes.Buffer{},
 	}
 
 	// Clean database before starting
@@ -75,6 +83,10 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 	t.Log("Starting API Gateway...")
 	env.apiGatewayCmd = startAPIGateway(t, projectRoot, env)
 
+	// Start Telemetry Collector
+	t.Log("Starting Telemetry Collector...")
+	env.telemetryCollectorCmd = startTelemetryCollector(t, projectRoot, env)
+
 	// Wait for all services to be ready
 	t.Log("Waiting for services to be ready...")
 	waitForServices(t, env)
@@ -82,6 +94,9 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 	// Setup cleanup
 	env.cleanup = func() {
 		t.Log("Cleaning up services...")
+		if env.telemetryCollectorCmd != nil && env.telemetryCollectorCmd.Process != nil {
+			env.telemetryCollectorCmd.Process.Kill()
+		}
 		if env.apiGatewayCmd != nil && env.apiGatewayCmd.Process != nil {
 			env.apiGatewayCmd.Process.Kill()
 		}
@@ -100,6 +115,8 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 			t.Log(env.userServiceLog.String())
 			t.Log("=== API Gateway Logs ===")
 			t.Log(env.apiGatewayLog.String())
+			t.Log("=== Telemetry Collector Logs ===")
+			t.Log(env.telemetryCollectorLog.String())
 		}
 	}
 
@@ -120,6 +137,7 @@ func buildServices(t *testing.T, projectRoot string) {
 		{"device-manager", "services/device-manager"},
 		{"user-service", "services/user-service"},
 		{"api-gateway", "services/api-gateway"},
+		{"telemetry-collector", "services/telemetry-collector"},
 	}
 
 	for _, svc := range services {
@@ -197,6 +215,7 @@ func startAPIGateway(t *testing.T, projectRoot string, env *TestEnvironment) *ex
 		"PORT=18080",
 		"DEVICE_MANAGER_ADDR=localhost:18081",
 		"USER_SERVICE_ADDR=localhost:18083",
+		"TELEMETRY_SERVICE_ADDR=localhost:18084",
 		"JWT_SECRET=e2e-test-secret-key-for-testing-only",
 	)
 
@@ -205,6 +224,34 @@ func startAPIGateway(t *testing.T, projectRoot string, env *TestEnvironment) *ex
 
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start API Gateway: %v", err)
+	}
+
+	return cmd
+}
+
+// startTelemetryCollector starts the Telemetry Collector service.
+func startTelemetryCollector(t *testing.T, projectRoot string, env *TestEnvironment) *exec.Cmd {
+	t.Helper()
+
+	cmd := exec.Command(filepath.Join(projectRoot, "bin", "telemetry-collector"))
+	cmd.Env = append(os.Environ(),
+		"TELEMETRY_GRPC_PORT=18084",
+		"MQTT_BROKER=tcp://localhost:1883",
+		"MQTT_CLIENT_ID=telemetry-collector-e2e",
+		"MQTT_TOPIC=devices/+/telemetry",
+		"DB_HOST=localhost",
+		"DB_PORT=5432",
+		"DB_NAME=iot_platform",
+		"DB_USER=iot_user",
+		"DB_PASSWORD=iot_password",
+		"DB_SSLMODE=disable",
+	)
+
+	cmd.Stdout = io.MultiWriter(env.telemetryCollectorLog, testLogWriter{t, "telemetry-collector"})
+	cmd.Stderr = io.MultiWriter(env.telemetryCollectorLog, testLogWriter{t, "telemetry-collector"})
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Failed to start Telemetry Collector: %v", err)
 	}
 
 	return cmd
@@ -263,18 +310,22 @@ func waitForHTTP(ctx context.Context, url string) error {
 func cleanDatabase(t *testing.T) {
 	t.Helper()
 
-	// Execute SQL to truncate tables
-	cmd := exec.Command("docker-compose", "exec", "-T", "postgres",
-		"psql", "-U", "iot_user", "-d", "iot_platform",
-		"-c", "TRUNCATE TABLE devices, users CASCADE;",
-	)
+	// Clean each table separately to handle missing tables gracefully
+	// Order matters due to foreign key constraints - clean dependent tables first
+	tables := []string{"device_telemetry_latest", "device_telemetry", "devices", "users"}
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("Warning: Failed to clean database: %v\n%s", err, output)
-		// Don't fail - database might not exist yet
-	} else {
-		t.Log("Database cleaned")
+	for _, table := range tables {
+		cmd := exec.Command("docker-compose", "exec", "-T", "postgres",
+			"psql", "-U", "iot_user", "-d", "iot_platform",
+			"-c", fmt.Sprintf("TRUNCATE TABLE %s CASCADE;", table),
+		)
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Logf("Warning: Failed to clean table %s: %v\nOutput: %s", table, err, string(output))
+		} else {
+			t.Logf("Cleaned table: %s\nOutput: %s", table, string(output))
+		}
 	}
 }
 

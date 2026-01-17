@@ -5,9 +5,11 @@ package e2e
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
+	"time"
 )
 
 // TestE2E_UserRegistrationAndLogin tests the complete user registration and authentication flow.
@@ -17,8 +19,9 @@ func TestE2E_UserRegistrationAndLogin(t *testing.T) {
 	client := &http.Client{}
 	gatewayURL := "http://" + env.APIGatewayAddr + "/query"
 
-	// Test data
-	testEmail := "e2e-test@example.com"
+	// Test data - use unique email per test run
+	uniqueID := time.Now().UnixNano()
+	testEmail := fmt.Sprintf("e2e-test-%d@example.com", uniqueID)
 	testPassword := "SecurePassword123!"
 	testName := "E2E Test User"
 

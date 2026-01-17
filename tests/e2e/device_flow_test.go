@@ -3,8 +3,10 @@
 package e2e
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 // TestE2E_DeviceLifecycle tests the complete device CRUD lifecycle.
@@ -17,6 +19,10 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 	// First, register and login a user to get token
 	var jwtToken string
 	var deviceID string
+
+	// Unique email per test run
+	uniqueID := time.Now().UnixNano()
+	testEmail := fmt.Sprintf("device-test-%d@example.com", uniqueID)
 
 	t.Run("setup_user", func(t *testing.T) {
 		// Register
@@ -31,7 +37,7 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "device-test@example.com",
+					"email":    testEmail,
 					"password": "Password123!",
 					"name":     "Device Test User",
 				},
@@ -50,7 +56,7 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 			`,
 			"variables": map[string]interface{}{
 				"input": map[string]interface{}{
-					"email":    "device-test@example.com",
+					"email":    testEmail,
 					"password": "Password123!",
 				},
 			},
@@ -122,17 +128,30 @@ func TestE2E_DeviceLifecycle(t *testing.T) {
 			t.Fatalf("Device ID not generated: %v", device["id"])
 		}
 
-		// Verify metadata
+		// Verify metadata (order not guaranteed due to map iteration)
 		metadata, ok := device["metadata"].([]interface{})
 		if !ok {
 			t.Errorf("Metadata not present or wrong type")
 		} else if len(metadata) < 2 {
 			t.Errorf("Expected at least 2 metadata entries, got %d", len(metadata))
 		} else {
-			// Check first metadata entry
-			entry := metadata[0].(map[string]interface{})
-			if entry["key"] != "location" || entry["value"] != "test-lab" {
-				t.Errorf("Metadata[0] = %v, want {key: location, value: test-lab}", entry)
+			// Check that both metadata entries exist (order independent)
+			foundLocation := false
+			foundFloor := false
+			for _, m := range metadata {
+				entry := m.(map[string]interface{})
+				if entry["key"] == "location" && entry["value"] == "test-lab" {
+					foundLocation = true
+				}
+				if entry["key"] == "floor" && entry["value"] == "3" {
+					foundFloor = true
+				}
+			}
+			if !foundLocation {
+				t.Errorf("Missing metadata entry: {key: location, value: test-lab}")
+			}
+			if !foundFloor {
+				t.Errorf("Missing metadata entry: {key: floor, value: 3}")
 			}
 		}
 

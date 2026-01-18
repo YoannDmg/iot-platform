@@ -1,94 +1,243 @@
 # API Gateway
 
-Point d'entrée unique de la plateforme IoT. Expose une API GraphQL pour les clients (Web, Mobile) et communique avec les microservices en gRPC.
+> Point d'entrée GraphQL de la plateforme IoT avec authentification JWT
 
-## 🎯 Responsabilités
+[![Go](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white)](https://golang.org)
+[![GraphQL](https://img.shields.io/badge/GraphQL-E10098?logo=graphql&logoColor=white)](https://graphql.org)
+[![gRPC](https://img.shields.io/badge/gRPC-HTTP%2F2-4285F4)](https://grpc.io)
 
-- Exposer une API GraphQL publique
-- Authentification et autorisation (JWT)
-- Rate limiting
-- Routing vers les microservices gRPC
-- Agrégation de données
+## Table des matières
 
-## 🏗️ Architecture
+- [Vue d'ensemble](#vue-densemble)
+- [Architecture](#architecture)
+- [Démarrage rapide](#démarrage-rapide)
+- [Configuration](#configuration)
+- [Authentification](#authentification)
+- [API GraphQL](#api-graphql)
+- [Développement](#développement)
+
+## Vue d'ensemble
+
+L'API Gateway est le point d'entrée unique de la plateforme. Il expose une API GraphQL pour les clients (Dashboard, applications mobiles) et communique avec les microservices backend via gRPC.
+
+### Fonctionnalités
+
+- **API GraphQL** — Schéma typé, playground intégré
+- **Authentification JWT** — Tokens HS256, expiration 24h
+- **Autorisation par rôles** — admin, user, device
+- **Clients gRPC** — Connexion aux 3 microservices
+- **CORS** — Support cross-origin pour le frontend
+
+### Technologies
+
+| Composant | Technologie |
+|-----------|-------------|
+| Langage | Go 1.24 |
+| API | GraphQL (gqlgen) |
+| Auth | JWT (HS256) |
+| Backend | gRPC clients |
+
+## Architecture
 
 ```
-┌──────────────────┐
-│  Web Dashboard   │
-│  Mobile App      │
-└────────┬─────────┘
-         │ GraphQL (HTTP)
-    ┌────▼────────────────┐
-    │   API Gateway       │
-    │   Port: 8080        │
-    │   Protocol: HTTP    │
-    │   API: GraphQL      │
-    └────────┬────────────┘
-             │ gRPC (interne)
-    ┌────────┼────────────┐
-    ▼        ▼            ▼
-┌────────┐ ┌─────┐  ┌────────┐
-│ Device │ │Data │  │ Notif  │
-│Manager │ │Coll.│  │Service │
-└────────┘ └─────┘  └────────┘
+┌─────────────┐  GraphQL   ┌──────────────────────────────────┐
+│  Dashboard  │◄──────────►│          API Gateway             │
+│  React+Vite │    HTTP    │           Port 8080              │
+└─────────────┘            ├──────────────────────────────────┤
+                           │  CORS → JWT Middleware → GraphQL │
+                           │         + Auth Extension         │
+                           └──────────┬───────────────────────┘
+                                      │ gRPC
+                    ┌─────────────────┼─────────────────┐
+                    │                 │                 │
+                    ▼                 ▼                 ▼
+          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+          │Device Manager│  │ User Service │  │  Telemetry   │
+          │  Port 8081   │  │  Port 8082   │  │  Port 8083   │
+          └──────────────┘  └──────────────┘  └──────────────┘
 ```
 
-## 🚀 Démarrage
+### Structure du projet
 
-### 1. Installer les dépendances
+```
+api-gateway/
+├── main.go                 # Point d'entrée, configuration
+├── schema.graphql          # Schéma GraphQL
+├── gqlgen.yml              # Configuration gqlgen
+├── auth/
+│   ├── jwt.go              # Génération et validation JWT
+│   ├── middleware.go       # Middleware HTTP d'authentification
+│   └── graphql_auth.go     # Extension GraphQL d'autorisation
+├── grpc/
+│   └── client.go           # Clients gRPC (Device, User, Telemetry)
+├── graph/
+│   ├── resolver.go         # Injection des dépendances
+│   ├── auth_resolvers.go   # Resolvers auth (login, register)
+│   ├── resolvers_impl.go   # Resolvers devices
+│   ├── telemetry_resolvers.go # Resolvers télémétrie
+│   ├── generated/          # Code généré (ne pas modifier)
+│   └── model/              # Modèles GraphQL générés
+└── Dockerfile
+```
+
+## Démarrage rapide
+
+### Prérequis
+
+- Go 1.24+
+- Services backend actifs (Device Manager, User Service, Telemetry)
+
+### Lancement
 
 ```bash
+# Depuis la racine du projet
+make dev-api
+
+# Ou directement
 cd services/api-gateway
-go mod download
-```
-
-### 2. Générer le code GraphQL
-
-```bash
-# Installer gqlgen (une seule fois)
-go install github.com/99designs/gqlgen@latest
-
-# Générer le code
-go run github.com/99designs/gqlgen generate
-```
-
-Cela va créer :
-- `graph/generated/` : Code généré automatiquement
-- `graph/model/` : Modèles Go pour GraphQL
-- `graph/*.resolvers.go` : Fonctions à implémenter
-
-### 3. Lancer le serveur
-
-```bash
 go run main.go
 ```
 
-Le serveur démarre sur le port **8080**.
+Le serveur démarre sur `http://localhost:8080`.
 
-## 🧪 Tester l'API
+### Endpoints
 
-### GraphQL Playground
+| Endpoint | Description |
+|----------|-------------|
+| `/` | GraphQL Playground |
+| `/query` | API GraphQL |
+| `/health` | Health check |
 
-Ouvre ton navigateur sur : http://localhost:8080
+## Configuration
 
-C'est une interface interactive pour tester tes requêtes GraphQL !
+### Variables d'environnement
 
-### Exemples de requêtes
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `PORT` | Port HTTP | `8080` |
+| `DEVICE_MANAGER_ADDR` | Adresse Device Manager | `localhost:8081` |
+| `USER_SERVICE_ADDR` | Adresse User Service | `localhost:8082` |
+| `TELEMETRY_SERVICE_ADDR` | Adresse Telemetry | `localhost:8083` |
+| `JWT_SECRET` | Clé secrète JWT | `dev-jwt-secret-...` |
+
+## Authentification
+
+### Flux JWT
+
+1. L'utilisateur s'inscrit via `register` ou se connecte via `login`
+2. Le serveur retourne un token JWT (valide 24h)
+3. Le client inclut le token dans le header : `Authorization: Bearer <token>`
+4. Le middleware valide le token et injecte les claims dans le contexte
+
+### Claims JWT
+
+```go
+type Claims struct {
+    UserID string
+    Email  string
+    Name   string
+    Role   string  // admin, user, device
+}
+```
+
+### Opérations publiques
+
+Ces opérations ne nécessitent pas d'authentification :
+
+- `register` — Inscription
+- `login` — Connexion
+- Introspection GraphQL
+
+Toutes les autres opérations requièrent un token valide.
+
+### Rôles
+
+| Rôle | Permissions |
+|------|-------------|
+| `admin` | Accès complet, gestion des utilisateurs |
+| `user` | CRUD devices, lecture télémétrie |
+| `device` | Envoi de télémétrie uniquement |
+
+## API GraphQL
+
+### Queries
+
+```graphql
+# Utilisateur courant
+me: User
+
+# Liste des utilisateurs (admin)
+users(page: Int, pageSize: Int, role: String): UsersResponse
+
+# Devices
+device(id: ID!): Device
+devices(page: Int, pageSize: Int, type: String, status: String): DevicesResponse
+stats: Stats
+
+# Télémétrie
+deviceTelemetry(deviceId: ID!, metricName: String!, startTime: Int!, endTime: Int!, limit: Int): TelemetrySeries
+deviceTelemetryAggregated(deviceId: ID!, metricName: String!, startTime: Int!, endTime: Int!, interval: String!): [TelemetryAggregation!]!
+deviceLatestMetric(deviceId: ID!, metricName: String!): TelemetryPoint
+deviceMetrics(deviceId: ID!): [String!]!
+```
+
+### Mutations
+
+```graphql
+# Authentification
+register(input: RegisterInput!): AuthPayload!
+login(input: LoginInput!): AuthPayload!
+
+# Devices
+createDevice(input: CreateDeviceInput!): Device!
+updateDevice(input: UpdateDeviceInput!): Device!
+deleteDevice(id: ID!): DeleteResult!
+```
+
+### Exemples
+
+**Inscription :**
+```graphql
+mutation {
+  register(input: {
+    email: "admin@example.com"
+    password: "password123"
+    name: "Admin"
+  }) {
+    token
+    user {
+      id
+      email
+      role
+    }
+  }
+}
+```
+
+**Connexion :**
+```graphql
+mutation {
+  login(input: {
+    email: "admin@example.com"
+    password: "password123"
+  }) {
+    token
+  }
+}
+```
 
 **Créer un device :**
 ```graphql
 mutation {
   createDevice(input: {
-    name: "Capteur Température Salon"
+    name: "Capteur Température"
     type: "temperature_sensor"
     metadata: [
       { key: "location", value: "salon" }
-      { key: "floor", value: "1" }
     ]
   }) {
     id
     name
-    type
     status
   }
 }
@@ -109,31 +258,40 @@ query {
 }
 ```
 
-**Récupérer un device :**
+**Télémétrie agrégée :**
 ```graphql
 query {
-  device(id: "123") {
-    id
-    name
-    type
-    status
-    metadata {
-      key
-      value
-    }
+  deviceTelemetryAggregated(
+    deviceId: "device-001"
+    metricName: "temperature"
+    startTime: 1705579200
+    endTime: 1705665600
+    interval: "1 hour"
+  ) {
+    bucket
+    avg
+    min
+    max
+    count
   }
 }
 ```
 
-**Statistiques :**
-```graphql
-query {
-  stats {
-    totalDevices
-    onlineDevices
-    offlineDevices
-  }
-}
+## Développement
+
+### Modifier le schéma GraphQL
+
+1. Éditer `schema.graphql`
+2. Régénérer le code :
+   ```bash
+   go run github.com/99designs/gqlgen generate
+   ```
+3. Implémenter les nouveaux resolvers dans `graph/`
+
+### Tests
+
+```bash
+go test -v ./...
 ```
 
 ### Health Check
@@ -142,32 +300,6 @@ query {
 curl http://localhost:8080/health
 ```
 
-## 📝 Structure du code
+## License
 
-```
-api-gateway/
-├── main.go              # Point d'entrée
-├── schema.graphql       # Schéma GraphQL
-├── gqlgen.yml          # Configuration gqlgen
-├── graph/
-│   ├── generated/      # Code généré (ne pas modifier)
-│   ├── model/          # Modèles GraphQL
-│   └── resolver.go     # Implémentation des resolvers
-└── README.md
-```
-
-## 🔄 Workflow de développement
-
-1. Modifier `schema.graphql`
-2. Lancer `go run github.com/99designs/gqlgen generate`
-3. Implémenter les resolvers dans `graph/*.resolvers.go`
-4. Tester dans GraphQL Playground
-
-## 📝 TODO
-
-- [ ] Implémenter les resolvers
-- [ ] Connexion gRPC au Device Manager
-- [ ] Authentification JWT
-- [ ] Rate limiting
-- [ ] Métriques Prometheus
-- [ ] Tests
+MIT

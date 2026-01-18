@@ -5,8 +5,16 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'documentation/overiew',
     'documentation/getting-started',
-    'documentation/device-manager',
-    'documentation/api-gateway',
+    {
+      type: 'category',
+      label: 'Services',
+      items: [
+        'documentation/api-gateway',
+        'documentation/device-manager',
+        'documentation/user-service',
+        'documentation/telemetry-collector',
+      ],
+    },
   ],
 
   // Notes d'apprentissage (séparées)

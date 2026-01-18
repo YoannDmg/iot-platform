@@ -1,161 +1,189 @@
 # IoT Platform
 
-Plateforme IoT complète pour la gestion et le monitoring d'appareils connectés.
+> Plateforme de gestion et monitoring d'appareils IoT — Architecture microservices
 
-> **🚀 Nouveau ?** Commence par le [Guide de démarrage](GETTING_STARTED.md) pour une introduction complète !
+[![Go](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white)](https://golang.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![GraphQL](https://img.shields.io/badge/GraphQL-E10098?logo=graphql&logoColor=white)](https://graphql.org)
+[![gRPC](https://img.shields.io/badge/gRPC-HTTP%2F2-4285F4)](https://grpc.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
+[![MQTT](https://img.shields.io/badge/MQTT-3.1.1-660066?logo=mqtt&logoColor=white)](https://mqtt.org)
 
-## 🎯 Architecture de communication
+## Table des matières
 
-- **GraphQL** : API publique pour les clients Web/Mobile
-- **gRPC** : Communication inter-services (haute performance)
-- **MQTT** : Communication avec les devices IoT
-- **Protocol Buffers** : Contrats d'API stricts et typés
+- [Vue d'ensemble](#vue-densemble)
+- [Architecture](#architecture)
+- [Démarrage rapide](#démarrage-rapide)
+- [Services](#services)
+- [Configuration](#configuration)
+- [Développement](#développement)
+- [Tests](#tests)
+- [Monitoring](#monitoring)
 
-## 🏗️ Architecture
+## Vue d'ensemble
 
-### Services principaux
+Plateforme complète pour la gestion d'appareils IoT, conçue autour d'une architecture microservices. Elle permet l'enregistrement de devices, la collecte de télémétrie en temps réel via MQTT, et le monitoring via une interface React.
 
-- **API Gateway** (Go) - Point d'entrée unique GraphQL, authentification JWT
-- **Device Manager** (Go) - Gestion du cycle de vie des devices IoT (gRPC)
-- **User Service** (Go) - Gestion des utilisateurs et authentification
-- **Web Dashboard** (React) - Interface web de monitoring temps réel ✅
-- **IoT Clients** - Clients pour collecte de métriques (Mac, Linux, Windows)
+### Fonctionnalités
+
+- **Gestion des devices** — CRUD complet, statuts, métadonnées flexibles (JSONB)
+- **Collecte télémétrie** — Ingestion MQTT temps réel, stockage TimescaleDB
+- **Authentification** — JWT avec gestion des rôles (admin/user)
+- **API GraphQL** — Point d'entrée unique, typage strict, playground intégré
+- **Dashboard** — Interface React pour le monitoring et la configuration
+- **Observabilité** — Métriques Prometheus, dashboards Grafana
 
 ### Stack technique
 
-#### Backend
-- Go 1.21+ (API Gateway, Device Manager, User Service)
-- gRPC (Communication inter-services)
-- GraphQL (API publique via gqlgen)
-- Redis (Cache & Session)
-- PostgreSQL 16 (Stockage principal)
-- JWT (Authentification)
+| Couche | Technologies |
+|--------|--------------|
+| **Backend** | Go 1.24, gRPC, GraphQL (gqlgen), Protocol Buffers |
+| **Frontend** | React 19, TypeScript, Vite, Apollo Client, TailwindCSS |
+| **Base de données** | PostgreSQL 16, TimescaleDB |
+| **Messaging** | MQTT (Mosquitto), Redis |
+| **Monitoring** | Prometheus, Grafana |
+| **Infrastructure** | Docker Compose |
 
-#### Frontend
-- React 19 + TypeScript
-- Vite 7 (Build tool)
-- TailwindCSS 4 (Styling)
-- TanStack Query (Data fetching)
-- Recharts (Visualisation)
+## Architecture
 
-#### Infrastructure
+```
+┌─────────────┐    MQTT    ┌──────────────┐
+│ IoT Devices │───────────►│ MQTT Broker  │
+└─────────────┘            │ (Mosquitto)  │
+                           └──────┬───────┘
+                                  │ subscribe
+                                  ▼
+                           ┌──────────────────┐
+                           │    Telemetry     │
+                           │    Collector     │───────┐
+                           │    Port 8083     │       │
+                           └──────────────────┘       │
+                                                      │
+┌─────────────┐  GraphQL   ┌──────────────────┐       │
+│  Dashboard  │◄──────────►│   API Gateway    │       │
+│ React+Vite  │    HTTP    │ GraphQL + JWT    │       │
+└─────────────┘            │    Port 8080     │       │
+                           └────────┬─────────┘       │
+                                    │ gRPC            │
+                  ┌─────────────────┼─────────────────┤
+                  │                 │                 │
+                  ▼                 ▼                 ▼
+        ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+        │Device Manager│  │ User Service │  │  Telemetry   │
+        │  Port 8081   │  │  Port 8082   │  │  Port 8083   │
+        └───────┬──────┘  └──────┬───────┘  └──────┬───────┘
+                │                │                 │
+                └────────────────┼─────────────────┘
+                                 ▼
+                      ┌────────────────────┐
+                      │    PostgreSQL      │
+                      │   + TimescaleDB    │
+                      └────────────────────┘
+```
+
+### Communication
+
+| Protocole | Usage |
+|-----------|-------|
+| **GraphQL** | API publique (clients web/mobile) |
+| **gRPC** | Communication inter-services |
+| **MQTT** | Communication devices IoT |
+| **Protocol Buffers** | Contrats d'API typés |
+
+## Démarrage rapide
+
+### Prérequis
+
 - Docker & Docker Compose
-- Kubernetes (EKS)
-- Terraform (AWS)
-- Prometheus & Grafana (Monitoring)
-- GitHub Actions (CI/CD)
+- Go 1.24+
+- Node.js 20+
+- Protocol Buffers : `brew install protobuf`
 
-## 📁 Structure du projet
+### Installation
+
+```bash
+# Cloner et configurer
+git clone <repository-url>
+cd iot-platform
+cp .env.example .env
+
+# Installer les outils Go et dépendances Node
+make setup
+
+# Générer le code (Protocol Buffers + GraphQL)
+make generate
+```
+
+### Lancement
+
+```bash
+make start          # Tout en Docker
+make dev            # Développement (services locaux + infra Docker)
+make dev-dashboard  # Développement avec Dashboard React
+```
+
+Toutes les commandes disponibles :
+
+```bash
+make help
+```
+
+## Services
+
+| Service | Port | Protocole | Description |
+|---------|------|-----------|-------------|
+| [API Gateway](services/api-gateway/) | 8080 | HTTP | Point d'entrée GraphQL, authentification JWT |
+| [Device Manager](services/device-manager/) | 8081 | gRPC | Gestion du cycle de vie des devices IoT |
+| [User Service](services/user-service/) | 8082 | gRPC | Authentification et gestion des utilisateurs |
+| [Telemetry Collector](services/telemetry-collector/) | 8083 | gRPC + MQTT | Collecte des données IoT via MQTT |
+
+## Configuration
+
+```bash
+cp .env.example .env
+```
+
+Le fichier `.env.example` contient toutes les variables documentées avec leurs valeurs par défaut. Voir les README des services pour les configurations spécifiques.
+
+## Développement
+
+### Structure du projet
 
 ```
 iot-platform/
 ├── services/
-│   ├── api-gateway/          # Go - API Gateway
-│   ├── device-manager/       # Go - Gestion des devices
-│   ├── data-collector/       # Rust - Collecte temps réel
-│   └── notification-service/ # Go - Alertes et notifications
+│   ├── api-gateway/           # GraphQL + Auth
+│   ├── device-manager/        # Gestion devices
+│   ├── user-service/          # Authentification
+│   └── telemetry-collector/   # Ingestion MQTT
 ├── frontends/
-│   ├── web-dashboard/        # React - Dashboard web
-│   └── mobile-app/           # Flutter - App mobile
-├── infrastructure/
-│   ├── terraform/            # IaC AWS
-│   ├── kubernetes/           # Manifests K8s
-│   └── docker/               # Dockerfiles & compose
+│   └── dashboard/             # React + TypeScript
 ├── shared/
-│   ├── proto/                # Protocol Buffers
-│   └── schemas/              # Schémas de données
-└── docs/
-    ├── architecture/         # Diagrammes d'architecture
-    └── api/                  # Documentation API
-
+│   └── proto/                 # Protocol Buffers
+├── infrastructure/
+│   ├── database/              # Migrations SQL
+│   └── docker/                # Config Prometheus, Grafana, Mosquitto
+├── tests/
+│   └── e2e/                   # Tests end-to-end
+├── scripts/                   # Outils (simulateur)
+└── docs/                      # Documentation Docusaurus
 ```
 
-## 🚀 Démarrage rapide
-
-**Pour une explication détaillée, voir le [Guide de démarrage complet](GETTING_STARTED.md)**
-
-### Prérequis minimaux
-
-- Docker Desktop
-- Go 1.21+
-- Node.js 20+
-- Protocol Buffers Compiler : `brew install protobuf`
-
-### Installation rapide
+## Tests
 
 ```bash
-# 1. Installer les outils et dépendances (Go + Node)
-make setup
-
-# 2. Générer le code (Protocol Buffers + GraphQL)
-make generate
-
-# 3. Démarrer l'infrastructure (PostgreSQL, Redis)
-make up
-
-# 4. Appliquer les migrations de base de données
-make db-migrate
-
-# 5. Lancer TOUTE la plateforme (infra + backend + dashboard)
-make dev-full
+make test               # Tests unitaires
+make test-integration   # Tests d'intégration (nécessite DB)
+make test-e2e           # Tests end-to-end (nécessite plateforme)
+make simulate           # Simulateur de devices
 ```
 
-**Ou lancer les services individuellement :**
+## Documentation
 
 ```bash
-make device-manager    # gRPC sur port 8081
-make user-service      # gRPC sur port 8082
-make api-gateway       # GraphQL sur port 8080
-make dashboard         # React sur port 5173
+make docs               # Serveur local (port 3001)
 ```
 
-### Tester l'API
-
-Ouvre http://localhost:8080 dans ton navigateur pour accéder au **GraphQL Playground**.
-
-Exemple de requête :
-```graphql
-mutation {
-  createDevice(input: {
-    name: "Capteur Température"
-    type: "temperature_sensor"
-  }) {
-    id
-    name
-    status
-  }
-}
-```
-
-### Déploiement
-
-```bash
-# Infrastructure AWS
-cd infrastructure/terraform
-terraform init
-terraform plan
-terraform apply
-
-# Déploiement Kubernetes
-kubectl apply -f infrastructure/kubernetes/
-```
-
-## 📊 URLs de développement
-
-- **Dashboard Web**: http://localhost:5173 (React + Vite)
-- **API Gateway (GraphQL)**: http://localhost:8080 (GraphQL Playground)
-- **Documentation**: http://localhost:3001 (Docusaurus)
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-
-## 🔒 Sécurité
-
-- Authentification JWT
-- TLS/SSL pour toutes les communications
-- Secrets gérés via AWS Secrets Manager
-- Rate limiting sur l'API Gateway
-- RBAC sur Kubernetes
-
-## 📝 License
+## License
 
 MIT

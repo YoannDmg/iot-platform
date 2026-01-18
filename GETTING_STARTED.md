@@ -1,5 +1,7 @@
 # Getting Started Guide
 
+> ⚠️ **Documentation obsolète** — Ce guide n'est plus à jour. Consultez le [README principal](README.md) et les README des services dans `services/` pour les instructions actuelles. Une réécriture complète est prévue.
+
 Complete guide to set up and run the IoT platform locally.
 
 ## Prerequisites

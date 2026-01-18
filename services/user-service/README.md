@@ -1,6 +1,6 @@
-# Device Manager
+# User Service
 
-> Microservice gRPC de gestion des devices IoT avec support PostgreSQL
+> Microservice gRPC d'authentification et gestion des utilisateurs
 
 [![Go](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![gRPC](https://img.shields.io/badge/gRPC-HTTP%2F2-4285F4)](https://grpc.io)
@@ -18,16 +18,15 @@
 
 ## Vue d'ensemble
 
-Le Device Manager gère le cycle de vie complet des appareils IoT. Il expose une API gRPC pour les opérations CRUD avec support de deux backends de stockage.
+Le User Service gère l'authentification et le cycle de vie des utilisateurs de la plateforme IoT. Il fournit une API gRPC pour l'inscription, la connexion et la gestion des comptes avec support de rôles.
 
 ### Fonctionnalités
 
-- **CRUD complet** — Création, lecture, mise à jour, suppression de devices
-- **Gestion des statuts** — ONLINE, OFFLINE, ERROR, MAINTENANCE
-- **Métadonnées flexibles** — Stockage JSONB pour données personnalisées
+- **Authentification** — Inscription, connexion avec validation bcrypt
+- **Gestion des rôles** — admin, user, device
+- **CRUD utilisateurs** — Création, lecture, mise à jour, suppression
 - **Dual storage** — PostgreSQL (production) et In-Memory (dev/tests)
-- **Pagination** — Listing paginé des devices
-- **Type-safe** — Génération de code avec sqlc et Protocol Buffers
+- **Sécurité** — Hachage bcrypt, validation email, comptes désactivables
 
 ### Technologies
 
@@ -38,6 +37,7 @@ Le Device Manager gère le cycle de vie complet des appareils IoT. Il expose une
 | Database | PostgreSQL 15+ |
 | ORM | sqlc (SQL-first, type-safe) |
 | Driver | pgx/v5 |
+| Hachage | bcrypt |
 
 ## Architecture
 
@@ -49,14 +49,15 @@ Le Device Manager gère le cycle de vie complet des appareils IoT. Il expose une
          │ gRPC
          ▼
 ┌─────────────────────────────┐
-│       Device Manager        │
-│         Port 8081           │
+│       User Service          │
+│         Port 8082           │
 ├─────────────────────────────┤
 │     Storage Interface       │
-│  - CreateDevice             │
-│  - GetDevice / ListDevices  │
-│  - UpdateDevice             │
-│  - DeleteDevice             │
+│  - CreateUser               │
+│  - Authenticate             │
+│  - GetUser / GetByEmail     │
+│  - ListUsers                │
+│  - UpdateUser / Delete      │
 └──────────┬──────────────────┘
            │
     ┌──────┴──────┐
@@ -70,7 +71,7 @@ Le Device Manager gère le cycle de vie complet des appareils IoT. Il expose une
 ### Structure du projet
 
 ```
-device-manager/
+user-service/
 ├── main.go              # Point d'entrée, serveur gRPC
 ├── main_test.go         # Tests unitaires
 ├── storage/
@@ -90,30 +91,20 @@ device-manager/
 
 - Go 1.24+
 - Docker (pour PostgreSQL)
+- Protocol Buffers compiler
 
 ### Lancement
 
 ```bash
 # Depuis la racine du projet
-make dev-devices
+make dev-users
 
 # Ou directement
-cd services/device-manager
+cd services/user-service
 go run main.go
 ```
 
-Le service démarre sur `localhost:8081` avec le backend in-memory par défaut.
-
-### Avec PostgreSQL
-
-```bash
-# Démarrer l'infrastructure
-make infra
-make db-migrate
-
-# Lancer avec PostgreSQL
-STORAGE_TYPE=postgres go run main.go
-```
+Le service démarre sur `localhost:8082`.
 
 ## Configuration
 
@@ -121,6 +112,7 @@ STORAGE_TYPE=postgres go run main.go
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
+| `USER_SERVICE_PORT` | Port gRPC | `8082` |
 | `STORAGE_TYPE` | Backend (`memory`, `postgres`) | `memory` |
 | `DB_HOST` | Hôte PostgreSQL | `localhost` |
 | `DB_PORT` | Port PostgreSQL | `5432` |
@@ -134,12 +126,14 @@ STORAGE_TYPE=postgres go run main.go
 ### Service Definition
 
 ```protobuf
-service DeviceService {
-  rpc CreateDevice(CreateDeviceRequest) returns (CreateDeviceResponse);
-  rpc GetDevice(GetDeviceRequest) returns (GetDeviceResponse);
-  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
-  rpc UpdateDevice(UpdateDeviceRequest) returns (UpdateDeviceResponse);
-  rpc DeleteDevice(DeleteDeviceRequest) returns (DeleteDeviceResponse);
+service UserService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserByEmailResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 }
 ```
 
@@ -147,116 +141,110 @@ service DeviceService {
 
 > Les commandes suivantes doivent être exécutées depuis la **racine du projet**.
 
-**Créer un device :**
+**Créer un utilisateur :**
 ```bash
 grpcurl -plaintext \
   -import-path shared/proto \
-  -proto device/device.proto \
+  -proto user/user.proto \
   -d '{
-    "name": "Temperature Sensor",
-    "type": "sensor",
-    "metadata": {
-      "location": "room-101",
-      "model": "DHT22"
-    }
-  }' localhost:8081 device.DeviceService/CreateDevice
+    "email": "admin@example.com",
+    "password": "secret123",
+    "name": "Admin User",
+    "role": "admin"
+  }' localhost:8082 user.UserService/Register
 ```
 
-**Lister les devices :**
+**Authentifier :**
 ```bash
 grpcurl -plaintext \
   -import-path shared/proto \
-  -proto device/device.proto \
+  -proto user/user.proto \
+  -d '{
+    "email": "admin@example.com",
+    "password": "secret123"
+  }' localhost:8082 user.UserService/Authenticate
+```
+
+**Lister les utilisateurs :**
+```bash
+grpcurl -plaintext \
+  -import-path shared/proto \
+  -proto user/user.proto \
   -d '{
     "page": 1,
-    "page_size": 10
-  }' localhost:8081 device.DeviceService/ListDevices
+    "page_size": 10,
+    "role": "admin"
+  }' localhost:8082 user.UserService/ListUsers
 ```
 
-**Récupérer un device :**
+**Récupérer un utilisateur :**
 ```bash
 grpcurl -plaintext \
   -import-path shared/proto \
-  -proto device/device.proto \
+  -proto user/user.proto \
   -d '{
     "id": "550e8400-e29b-41d4-a716-446655440000"
-  }' localhost:8081 device.DeviceService/GetDevice
+  }' localhost:8082 user.UserService/GetUser
 ```
 
-**Mettre à jour un device :**
-```bash
-grpcurl -plaintext \
-  -import-path shared/proto \
-  -proto device/device.proto \
-  -d '{
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "Updated Sensor",
-    "status": "OFFLINE"
-  }' localhost:8081 device.DeviceService/UpdateDevice
-```
-
-**Supprimer un device :**
-```bash
-grpcurl -plaintext \
-  -import-path shared/proto \
-  -proto device/device.proto \
-  -d '{
-    "id": "550e8400-e29b-41d4-a716-446655440000"
-  }' localhost:8081 device.DeviceService/DeleteDevice
-```
-
-### Modèle Device
+### Modèle User
 
 | Champ | Type | Description |
 |-------|------|-------------|
 | `id` | string | UUID |
-| `name` | string | Nom du device |
-| `type` | string | Type (sensor, actuator, etc.) |
-| `status` | enum | UNKNOWN, ONLINE, OFFLINE, ERROR, MAINTENANCE |
+| `email` | string | Email unique |
+| `name` | string | Nom complet |
+| `role` | string | admin, user, device |
 | `created_at` | int64 | Timestamp création |
-| `last_seen` | int64 | Dernier contact |
-| `metadata` | map | Métadonnées personnalisées |
+| `last_login` | int64 | Dernier login |
+| `is_active` | bool | Compte actif |
 
 ## Base de données
 
 ### Schéma
 
 ```sql
-CREATE TYPE device_status AS ENUM ('UNKNOWN', 'ONLINE', 'OFFLINE', 'ERROR', 'MAINTENANCE');
-
-CREATE TABLE devices (
-    id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name       VARCHAR(255) NOT NULL,
-    type       VARCHAR(100) NOT NULL,
-    status     device_status DEFAULT 'UNKNOWN',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    last_seen  TIMESTAMPTZ,
-    metadata   JSONB DEFAULT '{}'
+CREATE TABLE users (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email         VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    name          VARCHAR(255) NOT NULL,
+    role          VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'user', 'device')),
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    last_login    TIMESTAMPTZ,
+    is_active     BOOLEAN DEFAULT true
 );
 
-CREATE INDEX idx_devices_type ON devices(type);
-CREATE INDEX idx_devices_status ON devices(status);
-CREATE INDEX idx_devices_metadata ON devices USING GIN(metadata);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_active ON users(is_active);
 ```
 
-### sqlc
+### Requêtes sqlc
 
-Les requêtes SQL sont définies dans `db/queries/devices.sql` et le code Go est généré avec :
+Les requêtes SQL sont définies dans `db/queries/users.sql` et le code Go est généré avec :
 
 ```bash
-cd services/device-manager && sqlc generate
+cd services/user-service && sqlc generate
 ```
 
 ## Tests
 
 ```bash
 # Tests unitaires
-cd services/device-manager
+cd services/user-service
 go test -v ./...
 
 # Tests d'intégration (nécessite PostgreSQL)
 go test -tags=integration -v ./storage/...
 ```
+
+## Sécurité
+
+- Mots de passe hachés avec bcrypt (cost par défaut)
+- Validation email au niveau base de données
+- Comptes désactivables (`is_active`)
+- Codes d'erreur gRPC appropriés (NotFound, AlreadyExists, InvalidArgument)
 
 ## License
 

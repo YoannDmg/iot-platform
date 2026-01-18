@@ -1,4 +1,4 @@
-.PHONY: help start dev infra services test build clean
+.PHONY: help start dev infra services test build clean docs docs-build
 
 # Variables
 SERVICES := device-manager api-gateway user-service telemetry-collector

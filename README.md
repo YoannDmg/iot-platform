@@ -61,7 +61,7 @@ Plateforme complète pour la gestion d'appareils IoT, conçue autour d'une archi
                    │                 │                 │         │
                    ▼                 ▼                 ▼         │
          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-         │Device Manager│  │ User Service │  │  Telemetry   │◄───┘
+         │Device Manager│  │ User Service │  │Data Collector│◄───┘
          │  Port 8081   │  │  Port 8082   │  │  Port 8083   │
          └───────┬──────┘  └──────┬───────┘  └──────┬───────┘
                  │                │                 │
@@ -127,7 +127,7 @@ make help
 | [API Gateway](services/api-gateway/) | 8080 | HTTP | Point d'entrée GraphQL, authentification JWT |
 | [Device Manager](services/device-manager/) | 8081 | gRPC | Gestion du cycle de vie des devices IoT |
 | [User Service](services/user-service/) | 8082 | gRPC | Authentification et gestion des utilisateurs |
-| [Telemetry Collector](services/telemetry-collector/) | 8083 | gRPC + MQTT | Collecte des données IoT via MQTT |
+| [Data Collector](services/data-collector/) | 8083 | gRPC + MQTT | Collecte des données IoT via MQTT |
 
 ## Configuration
 
@@ -147,7 +147,7 @@ iot-platform/
 │   ├── api-gateway/           # GraphQL + Auth
 │   ├── device-manager/        # Gestion devices
 │   ├── user-service/          # Authentification
-│   └── telemetry-collector/   # Ingestion MQTT
+│   └── data-collector/        # Ingestion MQTT
 ├── frontends/
 │   └── dashboard/             # React + TypeScript
 ├── shared/

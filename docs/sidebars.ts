@@ -12,7 +12,7 @@ const sidebars: SidebarsConfig = {
         'documentation/api-gateway',
         'documentation/device-manager',
         'documentation/user-service',
-        'documentation/telemetry-collector',
+        'documentation/data-collector',
       ],
     },
   ],

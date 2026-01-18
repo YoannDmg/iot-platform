@@ -1,4 +1,4 @@
-// Package main implements the Telemetry Collector service.
+// Package main implements the Data Collector service.
 // Microservice for ingesting IoT device telemetry data via MQTT.
 package main
 
@@ -14,8 +14,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/yourusername/iot-platform/services/telemetry-collector/mqtt"
-	"github.com/yourusername/iot-platform/services/telemetry-collector/storage"
+	"github.com/yourusername/iot-platform/services/data-collector/mqtt"
+	"github.com/yourusername/iot-platform/services/data-collector/storage"
 	pb "github.com/yourusername/iot-platform/shared/proto/telemetry"
 )
 
@@ -89,7 +89,7 @@ func (s *TelemetryServer) GetDeviceMetrics(ctx context.Context, req *pb.GetDevic
 // Configuration via environment variables:
 //   - TELEMETRY_GRPC_PORT: gRPC server port (default: 8083)
 //   - MQTT_BROKER: MQTT broker URL (default: tcp://localhost:1883)
-//   - MQTT_CLIENT_ID: MQTT client ID (default: telemetry-collector)
+//   - MQTT_CLIENT_ID: MQTT client ID (default: data-collector)
 //   - MQTT_TOPIC: MQTT topic pattern (default: devices/+/telemetry)
 //   - DB_HOST: PostgreSQL host (default: localhost)
 //   - DB_PORT: PostgreSQL port (default: 5432)
@@ -124,7 +124,7 @@ func main() {
 
 	// Initialize MQTT client
 	mqttBroker := getEnv("MQTT_BROKER", "tcp://localhost:1883")
-	mqttClientID := getEnv("MQTT_CLIENT_ID", "telemetry-collector")
+	mqttClientID := getEnv("MQTT_CLIENT_ID", "data-collector")
 	mqttTopic := getEnv("MQTT_TOPIC", "devices/+/telemetry")
 
 	mqttClient, err := mqtt.NewClient(mqtt.Config{
@@ -176,7 +176,7 @@ func main() {
 	}()
 
 	log.Println("=====================================")
-	log.Printf("Telemetry Collector Service")
+	log.Printf("Data Collector Service")
 	log.Println("=====================================")
 	log.Printf("gRPC Port: %d", grpcPort)
 	log.Printf("MQTT Broker: %s", mqttBroker)

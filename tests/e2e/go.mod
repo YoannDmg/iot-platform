@@ -13,7 +13,7 @@ require (
 replace (
 	github.com/yourusername/iot-platform/services/api-gateway => ../../services/api-gateway
 	github.com/yourusername/iot-platform/services/device-manager => ../../services/device-manager
-	github.com/yourusername/iot-platform/services/telemetry-collector => ../../services/telemetry-collector
+	github.com/yourusername/iot-platform/services/data-collector => ../../services/data-collector
 	github.com/yourusername/iot-platform/services/user-service => ../../services/user-service
 	github.com/yourusername/iot-platform/shared => ../../shared
 )

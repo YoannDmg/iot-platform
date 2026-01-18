@@ -106,7 +106,7 @@ services:
       PORT: "8080"
       DEVICE_MANAGER_ADDR: "device-manager:8081"
       USER_SERVICE_ADDR: "user-service:8082"
-      TELEMETRY_SERVICE_ADDR: "telemetry-collector:8083"
+      TELEMETRY_SERVICE_ADDR: "data-collector:8083"
       JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-in-production}"
     depends_on:
       device-manager:
@@ -161,18 +161,18 @@ services:
       postgres:
         condition: service_healthy
 
-  # Telemetry Collector - MQTT ingestion & time-series storage
-  telemetry-collector:
+  # Data Collector - MQTT ingestion & time-series storage
+  data-collector:
     build:
       context: .
-      dockerfile: services/telemetry-collector/Dockerfile
-    container_name: iot-telemetry-collector
+      dockerfile: services/data-collector/Dockerfile
+    container_name: iot-data-collector
     ports:
       - "8083:8083"
     environment:
       TELEMETRY_GRPC_PORT: "8083"
       MQTT_BROKER: "tcp://mosquitto:1883"
-      MQTT_CLIENT_ID: "telemetry-collector"
+      MQTT_CLIENT_ID: "data-collector"
       MQTT_TOPIC: "devices/+/telemetry"
       DB_HOST: "postgres"
       DB_PORT: "5432"

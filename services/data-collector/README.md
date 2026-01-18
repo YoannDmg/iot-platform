@@ -1,6 +1,6 @@
-# Telemetry Collector
+# Data Collector
 
-> Microservice de collecte de télémétrie IoT via MQTT avec stockage TimescaleDB
+> Microservice de collecte de données IoT via MQTT avec stockage TimescaleDB
 
 [![Go](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![gRPC](https://img.shields.io/badge/gRPC-HTTP%2F2-4285F4)](https://grpc.io)
@@ -19,7 +19,7 @@
 
 ## Vue d'ensemble
 
-Le Telemetry Collector ingère les données de télémétrie des appareils IoT via MQTT et les stocke dans TimescaleDB. Il expose une API gRPC pour interroger les données brutes et agrégées.
+Le Data Collector ingère les données de télémétrie des appareils IoT via MQTT et les stocke dans TimescaleDB. Il expose une API gRPC pour interroger les données brutes et agrégées.
 
 ### Fonctionnalités
 
@@ -49,7 +49,7 @@ Le Telemetry Collector ingère les données de télémétrie des appareils IoT v
                                    │ subscribe
                                    ▼
 ┌─────────────────────────────────────────────┐
-│           Telemetry Collector               │
+│             Data Collector                  │
 │              Port 8083                      │
 ├─────────────────────────────────────────────┤
 │  MQTT Client          │    gRPC Server      │
@@ -71,7 +71,7 @@ Le Telemetry Collector ingère les données de télémétrie des appareils IoT v
 ### Structure du projet
 
 ```
-telemetry-collector/
+data-collector/
 ├── main.go              # Point d'entrée, serveur gRPC
 ├── mqtt/
 │   └── client.go        # Client MQTT, parsing messages
@@ -96,10 +96,10 @@ telemetry-collector/
 # Depuis la racine du projet
 make infra          # Démarre Mosquitto + PostgreSQL
 make db-migrate     # Crée les tables
-make dev-telemetry  # Lance le service
+make dev-data       # Lance le service
 
 # Ou directement
-cd services/telemetry-collector
+cd services/data-collector
 go run main.go
 ```
 
@@ -116,7 +116,7 @@ Le service :
 |----------|-------------|--------|
 | `TELEMETRY_GRPC_PORT` | Port gRPC | `8083` |
 | `MQTT_BROKER` | URL du broker | `tcp://localhost:1883` |
-| `MQTT_CLIENT_ID` | ID client MQTT | `telemetry-collector` |
+| `MQTT_CLIENT_ID` | ID client MQTT | `data-collector` |
 | `MQTT_TOPIC` | Topic de souscription | `devices/+/telemetry` |
 | `DB_HOST` | Hôte PostgreSQL | `localhost` |
 | `DB_PORT` | Port PostgreSQL | `5432` |

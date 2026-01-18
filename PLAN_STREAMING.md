@@ -8,7 +8,7 @@
 | GraphQL Subscription | 🟡 Déclaré | `deviceUpdated` existe mais `panic("not implemented")` |
 | WebSocket (gorilla) | 🟡 Dépendance présente | Non utilisé dans le serveur |
 | Apollo Client | 🟡 Partiel | Pas de WebSocketLink |
-| Telemetry Collector | ✅ Fonctionne | MQTT → TimescaleDB, pas de Redis |
+| Data Collector | ✅ Fonctionne | MQTT → TimescaleDB, pas de Redis |
 
 ---
 
@@ -16,7 +16,7 @@
 
 ```
 ┌─────────────────┐     MQTT      ┌─────────────────────┐
-│  IoT Devices    │──────────────▶│ Telemetry Collector │
+│  IoT Devices    │──────────────▶│ Data Collector │
 └─────────────────┘               └──────────┬──────────┘
                                              │
                                    ┌─────────▼─────────┐
@@ -49,8 +49,8 @@
 ### Étape 1 : Redis Pub/Sub dans Telemetry Collector
 
 **Fichiers à modifier :**
-- `services/telemetry-collector/main.go`
-- `services/telemetry-collector/publisher/redis.go` (nouveau)
+- `services/Data-collector/main.go`
+- `services/Data-collector/publisher/redis.go` (nouveau)
 
 **Travail :**
 1. Ajouter dépendance `github.com/redis/go-redis/v9`

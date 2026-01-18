@@ -1,4 +1,4 @@
-module github.com/yourusername/iot-platform/services/telemetry-collector
+module github.com/yourusername/iot-platform/services/data-collector
 
 go 1.24.0
 

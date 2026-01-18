@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 # Copy go.mod + go.sum from repo root
-COPY services/telemetry-collector/go.mod services/telemetry-collector/go.sum ./
+COPY services/data-collector/go.mod services/data-collector/go.sum ./
 
 # Copy shared proto
 COPY shared/proto /shared/proto
@@ -19,10 +19,10 @@ RUN go mod edit -replace github.com/yourusername/iot-platform/shared/proto=/shar
 RUN go mod download
 
 # Copy service source
-COPY services/telemetry-collector ./
+COPY services/data-collector ./
 
 # Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o telemetry-collector .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o data-collector .
 
 # Runtime stage
 FROM alpine:3.19
@@ -33,10 +33,10 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates
 
 # Copy binary
-COPY --from=builder /app/telemetry-collector .
+COPY --from=builder /app/data-collector .
 
 # Expose gRPC port
 EXPOSE 8083
 
 # Run
-CMD ["./telemetry-collector"]
+CMD ["./data-collector"]

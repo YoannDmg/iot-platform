@@ -18,23 +18,23 @@ import (
 // TestEnvironment holds the test environment with all running services.
 type TestEnvironment struct {
 	// Service addresses
-	DeviceManagerAddr      string
-	UserServiceAddr        string
-	APIGatewayAddr         string
-	TelemetryCollectorAddr string
-	MQTTBrokerAddr         string
+	DeviceManagerAddr  string
+	UserServiceAddr    string
+	APIGatewayAddr     string
+	DataCollectorAddr  string
+	MQTTBrokerAddr     string
 
 	// Running processes
-	deviceManagerCmd      *exec.Cmd
-	userServiceCmd        *exec.Cmd
-	apiGatewayCmd         *exec.Cmd
-	telemetryCollectorCmd *exec.Cmd
+	deviceManagerCmd  *exec.Cmd
+	userServiceCmd    *exec.Cmd
+	apiGatewayCmd     *exec.Cmd
+	dataCollectorCmd  *exec.Cmd
 
 	// Output buffers for debugging
-	deviceManagerLog      *bytes.Buffer
-	userServiceLog        *bytes.Buffer
-	apiGatewayLog         *bytes.Buffer
-	telemetryCollectorLog *bytes.Buffer
+	deviceManagerLog  *bytes.Buffer
+	userServiceLog    *bytes.Buffer
+	apiGatewayLog     *bytes.Buffer
+	dataCollectorLog  *bytes.Buffer
 
 	// Cleanup function
 	cleanup func()
@@ -53,15 +53,15 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 	// Use different ports for E2E tests to avoid conflicts
 	// Note: MQTT broker runs via docker-compose on standard port 1883
 	env := &TestEnvironment{
-		DeviceManagerAddr:      "localhost:18081",
-		UserServiceAddr:        "localhost:18083",
-		APIGatewayAddr:         "localhost:18080",
-		TelemetryCollectorAddr: "localhost:18084",
-		MQTTBrokerAddr:         "localhost:1883",
-		deviceManagerLog:       &bytes.Buffer{},
-		userServiceLog:         &bytes.Buffer{},
-		apiGatewayLog:          &bytes.Buffer{},
-		telemetryCollectorLog:  &bytes.Buffer{},
+		DeviceManagerAddr:  "localhost:18081",
+		UserServiceAddr:    "localhost:18083",
+		APIGatewayAddr:     "localhost:18080",
+		DataCollectorAddr:  "localhost:18084",
+		MQTTBrokerAddr:     "localhost:1883",
+		deviceManagerLog:   &bytes.Buffer{},
+		userServiceLog:     &bytes.Buffer{},
+		apiGatewayLog:      &bytes.Buffer{},
+		dataCollectorLog:   &bytes.Buffer{},
 	}
 
 	// Clean database before starting
@@ -83,9 +83,9 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 	t.Log("Starting API Gateway...")
 	env.apiGatewayCmd = startAPIGateway(t, projectRoot, env)
 
-	// Start Telemetry Collector
-	t.Log("Starting Telemetry Collector...")
-	env.telemetryCollectorCmd = startTelemetryCollector(t, projectRoot, env)
+	// Start Data Collector
+	t.Log("Starting Data Collector...")
+	env.dataCollectorCmd = startDataCollector(t, projectRoot, env)
 
 	// Wait for all services to be ready
 	t.Log("Waiting for services to be ready...")
@@ -94,8 +94,8 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 	// Setup cleanup
 	env.cleanup = func() {
 		t.Log("Cleaning up services...")
-		if env.telemetryCollectorCmd != nil && env.telemetryCollectorCmd.Process != nil {
-			env.telemetryCollectorCmd.Process.Kill()
+		if env.dataCollectorCmd != nil && env.dataCollectorCmd.Process != nil {
+			env.dataCollectorCmd.Process.Kill()
 		}
 		if env.apiGatewayCmd != nil && env.apiGatewayCmd.Process != nil {
 			env.apiGatewayCmd.Process.Kill()
@@ -115,8 +115,8 @@ func SetupE2EEnvironment(t *testing.T) *TestEnvironment {
 			t.Log(env.userServiceLog.String())
 			t.Log("=== API Gateway Logs ===")
 			t.Log(env.apiGatewayLog.String())
-			t.Log("=== Telemetry Collector Logs ===")
-			t.Log(env.telemetryCollectorLog.String())
+			t.Log("=== Data Collector Logs ===")
+			t.Log(env.dataCollectorLog.String())
 		}
 	}
 
@@ -137,7 +137,7 @@ func buildServices(t *testing.T, projectRoot string) {
 		{"device-manager", "services/device-manager"},
 		{"user-service", "services/user-service"},
 		{"api-gateway", "services/api-gateway"},
-		{"telemetry-collector", "services/telemetry-collector"},
+		{"data-collector", "services/data-collector"},
 	}
 
 	for _, svc := range services {
@@ -229,15 +229,15 @@ func startAPIGateway(t *testing.T, projectRoot string, env *TestEnvironment) *ex
 	return cmd
 }
 
-// startTelemetryCollector starts the Telemetry Collector service.
-func startTelemetryCollector(t *testing.T, projectRoot string, env *TestEnvironment) *exec.Cmd {
+// startDataCollector starts the Data Collector service.
+func startDataCollector(t *testing.T, projectRoot string, env *TestEnvironment) *exec.Cmd {
 	t.Helper()
 
-	cmd := exec.Command(filepath.Join(projectRoot, "bin", "telemetry-collector"))
+	cmd := exec.Command(filepath.Join(projectRoot, "bin", "data-collector"))
 	cmd.Env = append(os.Environ(),
 		"TELEMETRY_GRPC_PORT=18084",
 		"MQTT_BROKER=tcp://localhost:1883",
-		"MQTT_CLIENT_ID=telemetry-collector-e2e",
+		"MQTT_CLIENT_ID=data-collector-e2e",
 		"MQTT_TOPIC=devices/+/telemetry",
 		"DB_HOST=localhost",
 		"DB_PORT=5432",
@@ -247,11 +247,11 @@ func startTelemetryCollector(t *testing.T, projectRoot string, env *TestEnvironm
 		"DB_SSLMODE=disable",
 	)
 
-	cmd.Stdout = io.MultiWriter(env.telemetryCollectorLog, testLogWriter{t, "telemetry-collector"})
-	cmd.Stderr = io.MultiWriter(env.telemetryCollectorLog, testLogWriter{t, "telemetry-collector"})
+	cmd.Stdout = io.MultiWriter(env.dataCollectorLog, testLogWriter{t, "data-collector"})
+	cmd.Stderr = io.MultiWriter(env.dataCollectorLog, testLogWriter{t, "data-collector"})
 
 	if err := cmd.Start(); err != nil {
-		t.Fatalf("Failed to start Telemetry Collector: %v", err)
+		t.Fatalf("Failed to start Data Collector: %v", err)
 	}
 
 	return cmd

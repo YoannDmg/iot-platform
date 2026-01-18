@@ -51,7 +51,7 @@ func NewClient(config Config) (*Client, error) {
 		return nil, fmt.Errorf("broker URL is required")
 	}
 	if config.ClientID == "" {
-		config.ClientID = "telemetry-collector"
+		config.ClientID = "data-collector"
 	}
 	if config.Topic == "" {
 		config.Topic = "devices/+/telemetry"

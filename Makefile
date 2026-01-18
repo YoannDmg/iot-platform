@@ -1,7 +1,7 @@
 .PHONY: help start dev infra services test build clean docs docs-build
 
 # Variables
-SERVICES := device-manager api-gateway user-service telemetry-collector
+SERVICES := device-manager api-gateway user-service data-collector
 PROTO_DIR := shared/proto
 BIN_DIR := bin
 DASHBOARD_DIR := frontends/dashboard
@@ -52,9 +52,9 @@ help: ## Affiche l'aide
 	@echo "  \033[36mdev-api\033[0m               API Gateway seul"
 	@echo "  \033[36mdev-devices\033[0m           Device Manager seul"
 	@echo "  \033[36mdev-users\033[0m             User Service seul"
-	@echo "  \033[36mdev-telemetry\033[0m         Telemetry Collector seul"
+	@echo "  \033[36mdev-data\033[0m              Data Collector seul"
 	@echo ""
-	@echo "📦 SERVICES DOCKER (api-gateway, device-manager, user-service, telemetry-collector)"
+	@echo "📦 SERVICES DOCKER (api-gateway, device-manager, user-service, data-collector)"
 	@echo "  \033[36mservices\033[0m              Démarre les services (nécessite infra)"
 	@echo "  \033[36mservices-down\033[0m         Arrête les services"
 	@echo "  \033[36mservices-logs\033[0m         Logs des services"
@@ -115,7 +115,7 @@ dev: infra db-migrate ## Développement (infra Docker + services locaux)
 	@echo "📍 Services:"
 	@echo "  Device Manager:      localhost:8081 (gRPC)"
 	@echo "  User Service:        localhost:8082 (gRPC)"
-	@echo "  Telemetry Collector: localhost:8083 (gRPC + MQTT)"
+	@echo "  Data Collector:      localhost:8083 (gRPC + MQTT)"
 	@echo "  API Gateway:         http://localhost:8080 (GraphQL)"
 	@echo ""
 	@echo "⚠️  Ctrl+C pour arrêter"
@@ -123,7 +123,7 @@ dev: infra db-migrate ## Développement (infra Docker + services locaux)
 	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
 	(cd services/device-manager && go run main.go) & \
 	(sleep 2 && cd services/user-service && go run main.go) & \
-	(sleep 3 && cd services/telemetry-collector && go run main.go) & \
+	(sleep 3 && cd services/data-collector && go run main.go) & \
 	(sleep 5 && cd services/api-gateway && go run main.go) & \
 	wait
 
@@ -141,7 +141,7 @@ dev-dashboard: infra db-migrate ## Dev + dashboard React
 	@trap 'echo "\n🛑 Arrêt des services..."; kill 0' INT; \
 	(cd services/device-manager && go run main.go) & \
 	(sleep 2 && cd services/user-service && go run main.go) & \
-	(sleep 3 && cd services/telemetry-collector && go run main.go) & \
+	(sleep 3 && cd services/data-collector && go run main.go) & \
 	(sleep 5 && cd services/api-gateway && go run main.go) & \
 	(sleep 7 && cd $(DASHBOARD_DIR) && npm run dev) & \
 	wait
@@ -156,8 +156,8 @@ dev-devices: ## Device Manager seul
 dev-users: ## User Service seul
 	@cd services/user-service && go run main.go
 
-dev-telemetry: ## Telemetry Collector seul
-	@cd services/telemetry-collector && go run main.go
+dev-data: ## Data Collector seul
+	@cd services/data-collector && go run main.go
 
 #==================================================================================
 # INFRASTRUCTURE
@@ -200,20 +200,20 @@ infra-status: ## Statut des containers
 
 services: ## Démarre les services (nécessite infra)
 	@echo "📦 Démarrage des services..."
-	@docker-compose up -d --build api-gateway device-manager user-service telemetry-collector
+	@docker-compose up -d --build api-gateway device-manager user-service data-collector
 	@echo "✅ Services démarrés!"
 
 services-down: ## Arrête les services
 	@echo "🛑 Arrêt des services..."
-	@docker-compose stop api-gateway device-manager user-service telemetry-collector
+	@docker-compose stop api-gateway device-manager user-service data-collector
 	@echo "✅ Services arrêtés"
 
 services-logs: ## Logs des services
-	@docker-compose logs -f api-gateway device-manager user-service telemetry-collector
+	@docker-compose logs -f api-gateway device-manager user-service data-collector
 
 services-rebuild: ## Rebuild et relance
 	@echo "🔨 Rebuild des services..."
-	@docker-compose up -d --build api-gateway device-manager user-service telemetry-collector
+	@docker-compose up -d --build api-gateway device-manager user-service data-collector
 	@echo "✅ Services reconstruits!"
 
 #==================================================================================

@@ -180,10 +180,14 @@ services:
       DB_USER: "iot_user"
       DB_PASSWORD: "iot_password"
       DB_SSLMODE: "disable"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
     depends_on:
       postgres:
         condition: service_healthy
       mosquitto:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:

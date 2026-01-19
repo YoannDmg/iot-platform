@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yourusername/iot-platform/services/data-collector/mqtt"
+	"github.com/yourusername/iot-platform/services/data-collector/publisher"
 	"github.com/yourusername/iot-platform/services/data-collector/storage"
 	pb "github.com/yourusername/iot-platform/shared/proto/telemetry"
 )
@@ -97,6 +98,10 @@ func (s *TelemetryServer) GetDeviceMetrics(ctx context.Context, req *pb.GetDevic
 //   - DB_USER: Database user (default: iot_user)
 //   - DB_PASSWORD: Database password (default: iot_password)
 //   - DB_SSLMODE: SSL mode (default: disable)
+//   - REDIS_HOST: Redis host (default: localhost)
+//   - REDIS_PORT: Redis port (default: 6379)
+//   - REDIS_PASSWORD: Redis password (default: "")
+//   - REDIS_DB: Redis database (default: 0)
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -122,6 +127,18 @@ func main() {
 	defer store.Close()
 	log.Printf("✅ Connected to TimescaleDB")
 
+	// Initialize Redis publisher
+	redisPublisher, err := publisher.NewRedisPublisher(ctx, publisher.Config{
+		Host:     getEnv("REDIS_HOST", "localhost"),
+		Port:     getEnvInt("REDIS_PORT", 6379),
+		Password: getEnv("REDIS_PASSWORD", ""),
+		DB:       getEnvInt("REDIS_DB", 0),
+	})
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to Redis: %v", err)
+	}
+	defer redisPublisher.Close()
+
 	// Initialize MQTT client
 	mqttBroker := getEnv("MQTT_BROKER", "tcp://localhost:1883")
 	mqttClientID := getEnv("MQTT_CLIENT_ID", "data-collector")
@@ -134,6 +151,11 @@ func main() {
 		OnMessage: func(deviceID, metricName string, value float64, unit string, timestamp int64, metadata map[string]string) {
 			if err := store.InsertTelemetry(ctx, deviceID, metricName, value, unit, timestamp, metadata); err != nil {
 				log.Printf("❌ Failed to insert telemetry: %v", err)
+				return
+			}
+			// Publish to Redis after successful DB insert
+			if err := redisPublisher.PublishTelemetry(ctx, deviceID, metricName, value, unit, timestamp); err != nil {
+				log.Printf("⚠️ Failed to publish to Redis: %v", err)
 			}
 		},
 	})
@@ -171,6 +193,7 @@ func main() {
 		log.Println("⏳ Shutting down gracefully...")
 		grpcServer.GracefulStop()
 		mqttClient.Disconnect()
+		redisPublisher.Close()
 		store.Close()
 		cancel()
 	}()
@@ -182,6 +205,7 @@ func main() {
 	log.Printf("MQTT Broker: %s", mqttBroker)
 	log.Printf("MQTT Topic: %s", mqttTopic)
 	log.Printf("Database: TimescaleDB")
+	log.Printf("Redis: %s:%d", getEnv("REDIS_HOST", "localhost"), getEnvInt("REDIS_PORT", 6379))
 	log.Println("-------------------------------------")
 	log.Printf("✅ Server started")
 	log.Printf("⏳ Waiting for telemetry data...")

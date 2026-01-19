@@ -12,8 +12,7 @@ import (
 // PublicOperations lists GraphQL operations that don't require authentication.
 // All other operations require a valid JWT token.
 var PublicOperations = map[string]bool{
-	"register":           true,
-	"login":              true,
+	"login":              true,// Subscription - auth handled via WebSocket connectionParams
 	"IntrospectionQuery": true, // For GraphQL tooling
 	"__schema":           true, // For GraphQL introspection
 	"__type":             true, // For GraphQL introspection

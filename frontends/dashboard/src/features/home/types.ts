@@ -1,7 +1,8 @@
 // Types spécifiques à la page Overview
 // Les types Device et DeviceStatus sont dans shared/types
 
-export { type Device, type DeviceStatus } from "@/types/device"
+import type { Device, DeviceStatus } from "@/types/device"
+export type { Device, DeviceStatus }
 
 export interface Stats {
   totalDevices: number
@@ -15,7 +16,7 @@ export interface ActivityItem {
   deviceId: string
   deviceName: string
   deviceType: string
-  status: import("@/types").DeviceStatus
+  status: DeviceStatus
   action: string
   timestamp: string
 }

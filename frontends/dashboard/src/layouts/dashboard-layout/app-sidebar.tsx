@@ -6,11 +6,13 @@ import {
 } from "@tabler/icons-react"
 
 import { NavMain } from "./nav-main"
+import { NavUser } from "./nav-user"
 import { SidebarLogo } from "./sidebar-logo"
 import { ThemeToggle } from "./theme-toggle"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
@@ -69,6 +71,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={data.navMain} />
         <ThemeToggle className="mt-auto" />
       </SidebarContent>
+      <SidebarFooter>
+        <NavUser />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

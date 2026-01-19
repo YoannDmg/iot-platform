@@ -1,19 +1,16 @@
+import { Outlet } from "react-router-dom"
 import { AppSidebar } from "./app-sidebar"
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
 
-interface DashboardLayoutProps {
-  children: React.ReactNode
-}
-
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        {children}
+        <Outlet />
       </SidebarInset>
     </SidebarProvider>
   )

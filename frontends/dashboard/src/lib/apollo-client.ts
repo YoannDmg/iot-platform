@@ -19,7 +19,10 @@ const httpLink = new HttpLink({
             for (const err of json.errors) {
               if (err.extensions?.code === "UNAUTHENTICATED") {
                 localStorage.removeItem("auth_token")
-                window.location.href = "/login"
+                // Only redirect if not already on login page (avoid loop)
+                if (!window.location.pathname.startsWith("/login")) {
+                  window.location.href = "/login"
+                }
                 break
               }
             }

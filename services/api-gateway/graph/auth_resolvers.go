@@ -30,6 +30,12 @@ func protoToGraphQLUser(u *userpb.User) *model.User {
 // Mutation resolvers for authentication
 
 func (r *mutationResolver) RegisterImpl(ctx context.Context, input model.RegisterInput) (*model.AuthPayload, error) {
+	// Only admins can create new users
+	claims, ok := auth.GetUserFromContext(ctx)
+	if !ok || claims.Role != "admin" {
+		return nil, fmt.Errorf("only admins can create users")
+	}
+
 	// Prepare register request
 	req := &userpb.RegisterRequest{
 		Email:    input.Email,

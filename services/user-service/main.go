@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/yourusername/iot-platform/shared/proto/user"
+	"github.com/yourusername/iot-platform/services/user-service/bootstrap"
 	"github.com/yourusername/iot-platform/services/user-service/storage"
 )
 
@@ -275,6 +276,11 @@ func main() {
 	default:
 		store = storage.NewMemoryStorage()
 		log.Printf("✅ Using in-memory storage")
+	}
+
+	// Bootstrap: ensure admin user exists
+	if err := bootstrap.EnsureAdminExists(ctx, store); err != nil {
+		log.Printf("⚠️  Admin bootstrap failed: %v", err)
 	}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))

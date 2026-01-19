@@ -8,6 +8,7 @@
 [![gRPC](https://img.shields.io/badge/gRPC-HTTP%2F2-4285F4)](https://grpc.io)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
 [![MQTT](https://img.shields.io/badge/MQTT-3.1.1-660066?logo=mqtt&logoColor=white)](https://mqtt.org)
+[![WebSocket](https://img.shields.io/badge/WebSocket-Realtime-blue)](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
 
 ## Table des matières
 
@@ -28,6 +29,7 @@ Plateforme complète pour la gestion d'appareils IoT, conçue autour d'une archi
 
 - **Gestion des devices** — CRUD complet, statuts, métadonnées flexibles (JSONB)
 - **Collecte télémétrie** — Ingestion MQTT temps réel, stockage TimescaleDB
+- **Streaming temps réel** — Subscriptions GraphQL via WebSocket + Redis Pub/Sub
 - **Authentification** — JWT avec gestion des rôles (admin/user)
 - **API GraphQL** — Point d'entrée unique, typage strict, playground intégré
 - **Dashboard** — Interface React pour le monitoring et la configuration
@@ -40,7 +42,8 @@ Plateforme complète pour la gestion d'appareils IoT, conçue autour d'une archi
 | **Backend** | Go 1.24, gRPC, GraphQL (gqlgen), Protocol Buffers |
 | **Frontend** | React 19, TypeScript, Vite, Apollo Client, TailwindCSS |
 | **Base de données** | PostgreSQL 16, TimescaleDB |
-| **Messaging** | MQTT (Mosquitto), Redis |
+| **Messaging** | MQTT (Mosquitto), Redis Pub/Sub |
+| **Temps réel** | WebSocket (gorilla), GraphQL Subscriptions |
 | **Monitoring** | Prometheus, Grafana |
 | **Infrastructure** | Docker Compose |
 
@@ -48,23 +51,23 @@ Plateforme complète pour la gestion d'appareils IoT, conçue autour d'une archi
 
 ```
 ┌─────────────┐             ┌──────────────┐
-│ IoT Devices │────MQTT────►│ MQTT Broker  │─────────────────────┐
-└─────────────┘             │ (Mosquitto)  │                     │
-                            └──────────────┘                     │
-                                                                 │
-┌─────────────┐             ┌──────────────────┐                 │
-│  Dashboard  │◄──GraphQL──►│   API Gateway    │                 │
-│ React+Vite  │             │    Port 8080     │                 │
-└─────────────┘             └────────┬─────────┘                 │
-                                     │ gRPC                      │ MQTT
-                   ┌─────────────────┼─────────────────┐         │
-                   │                 │                 │         │
-                   ▼                 ▼                 ▼         │
-         ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-         │Device Manager│  │ User Service │  │Data Collector│◄───┘
-         │  Port 8081   │  │  Port 8082   │  │  Port 8083   │
+│ IoT Devices │────MQTT────►│ MQTT Broker  │──────────────────────┐
+└─────────────┘             │ (Mosquitto)  │                      │
+                            └──────────────┘                      │
+                                                                  │
+┌─────────────┐  GraphQL    ┌──────────────────┐     Redis        │
+│  Dashboard  │◄───────────►│   API Gateway    │◄────Pub/Sub─────┐│
+│ React+Vite  │  HTTP/WS    │    Port 8080     │                 ││
+└─────────────┘             └────────┬─────────┘                 ││
+                                     │ gRPC                      ││ MQTT
+                   ┌─────────────────┼─────────────────┐         ││
+                   │                 │                 │         ││
+                   ▼                 ▼                 ▼         ││
+         ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    ││
+         │Device Manager│  │ User Service │  │Data Collector│◄───┘│
+         │  Port 8081   │  │  Port 8082   │  │  Port 8083   │─────┘
          └───────┬──────┘  └──────┬───────┘  └──────┬───────┘
-                 │                │                 │
+                 │                │                 │  Redis Pub
                  └────────────────┼─────────────────┘
                                   ▼
                        ┌────────────────────┐
@@ -73,13 +76,23 @@ Plateforme complète pour la gestion d'appareils IoT, conçue autour d'une archi
                        └────────────────────┘
 ```
 
+### Flux de données temps réel
+
+```
+IoT Device ──► MQTT ──► Data Collector ──► TimescaleDB
+                              │
+                              └──► Redis Pub/Sub ──► API Gateway ──► WebSocket ──► Dashboard
+```
+
 ### Communication
 
 | Protocole | Usage |
 |-----------|-------|
-| **GraphQL** | API publique (clients web/mobile) |
+| **GraphQL** | API publique (queries, mutations) |
+| **WebSocket** | Subscriptions GraphQL temps réel |
 | **gRPC** | Communication inter-services |
 | **MQTT** | Communication devices IoT |
+| **Redis Pub/Sub** | Événements télémétrie internes |
 | **Protocol Buffers** | Contrats d'API typés |
 
 ## Démarrage rapide
@@ -124,10 +137,10 @@ make help
 
 | Service | Port | Protocole | Description |
 |---------|------|-----------|-------------|
-| [API Gateway](services/api-gateway/) | 8080 | HTTP | Point d'entrée GraphQL, authentification JWT |
+| [API Gateway](services/api-gateway/) | 8080 | HTTP/WS | Point d'entrée GraphQL, subscriptions WebSocket, auth JWT |
 | [Device Manager](services/device-manager/) | 8081 | gRPC | Gestion du cycle de vie des devices IoT |
 | [User Service](services/user-service/) | 8082 | gRPC | Authentification et gestion des utilisateurs |
-| [Data Collector](services/data-collector/) | 8083 | gRPC + MQTT | Collecte des données IoT via MQTT |
+| [Data Collector](services/data-collector/) | 8083 | gRPC + MQTT | Collecte des données IoT via MQTT, publication Redis |
 
 ## Configuration
 

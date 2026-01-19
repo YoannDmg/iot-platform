@@ -2,6 +2,7 @@ package graph
 
 import (
 	"github.com/yourusername/iot-platform/services/api-gateway/auth"
+	"github.com/yourusername/iot-platform/services/api-gateway/pubsub"
 	devicepb "github.com/yourusername/iot-platform/shared/proto/device"
 	telemetrypb "github.com/yourusername/iot-platform/shared/proto/telemetry"
 	userpb "github.com/yourusername/iot-platform/shared/proto/user"
@@ -18,4 +19,5 @@ type Resolver struct {
 	UserClient      userpb.UserServiceClient
 	TelemetryClient telemetrypb.TelemetryServiceClient
 	JWTManager      *auth.JWTManager
+	Broker          *pubsub.Broker
 }

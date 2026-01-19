@@ -107,7 +107,8 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		DeviceUpdated func(childComplexity int) int
+		DeviceUpdated     func(childComplexity int) int
+		TelemetryReceived func(childComplexity int, deviceID string) int
 	}
 
 	TelemetryAggregation struct {
@@ -167,6 +168,7 @@ type QueryResolver interface {
 }
 type SubscriptionResolver interface {
 	DeviceUpdated(ctx context.Context) (<-chan *model.Device, error)
+	TelemetryReceived(ctx context.Context, deviceID string) (<-chan *model.TelemetryPoint, error)
 }
 
 type executableSchema struct {
@@ -472,6 +474,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Subscription.DeviceUpdated(childComplexity), true
+	case "Subscription.telemetryReceived":
+		if e.complexity.Subscription.TelemetryReceived == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_telemetryReceived_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.TelemetryReceived(childComplexity, args["deviceId"].(string)), true
 
 	case "TelemetryAggregation.avg":
 		if e.complexity.TelemetryAggregation.Avg == nil {
@@ -964,6 +977,9 @@ type DeleteResult {
 type Subscription {
   # Recevoir les updates des devices en temps réel
   deviceUpdated: Device!
+
+  # Recevoir les données de télémétrie en temps réel pour un device
+  telemetryReceived(deviceId: ID!): TelemetryPoint!
 }
 `, BuiltIn: false},
 }
@@ -1183,6 +1199,17 @@ func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["role"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_telemetryReceived_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "deviceId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["deviceId"] = arg0
 	return args, nil
 }
 
@@ -2722,6 +2749,55 @@ func (ec *executionContext) fieldContext_Subscription_deviceUpdated(_ context.Co
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Device", field.Name)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_telemetryReceived(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_telemetryReceived,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Subscription().TelemetryReceived(ctx, fc.Args["deviceId"].(string))
+		},
+		nil,
+		ec.marshalNTelemetryPoint2ᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐTelemetryPoint,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_telemetryReceived(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "time":
+				return ec.fieldContext_TelemetryPoint_time(ctx, field)
+			case "value":
+				return ec.fieldContext_TelemetryPoint_value(ctx, field)
+			case "unit":
+				return ec.fieldContext_TelemetryPoint_unit(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TelemetryPoint", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_telemetryReceived_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -5658,6 +5734,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	switch fields[0].Name {
 	case "deviceUpdated":
 		return ec._Subscription_deviceUpdated(ctx, fields[0])
+	case "telemetryReceived":
+		return ec._Subscription_telemetryReceived(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
@@ -6627,6 +6705,10 @@ func (ec *executionContext) marshalNTelemetryAggregation2ᚖgithubᚗcomᚋyouru
 		return graphql.Null
 	}
 	return ec._TelemetryAggregation(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTelemetryPoint2githubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐTelemetryPoint(ctx context.Context, sel ast.SelectionSet, v model.TelemetryPoint) graphql.Marshaler {
+	return ec._TelemetryPoint(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNTelemetryPoint2ᚕᚖgithubᚗcomᚋyourusernameᚋiotᚑplatformᚋservicesᚋapiᚑgatewayᚋgraphᚋmodelᚐTelemetryPointᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TelemetryPoint) graphql.Marshaler {

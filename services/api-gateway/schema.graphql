@@ -231,4 +231,7 @@ type DeleteResult {
 type Subscription {
   # Recevoir les updates des devices en temps réel
   deviceUpdated: Device!
+
+  # Recevoir les données de télémétrie en temps réel pour un device
+  telemetryReceived(deviceId: ID!): TelemetryPoint!
 }

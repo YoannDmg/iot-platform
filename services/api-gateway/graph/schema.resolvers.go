@@ -88,6 +88,20 @@ func (r *subscriptionResolver) DeviceUpdated(ctx context.Context) (<-chan *model
 	panic(fmt.Errorf("not implemented: DeviceUpdated - deviceUpdated"))
 }
 
+// TelemetryReceived is the resolver for the telemetryReceived field.
+func (r *subscriptionResolver) TelemetryReceived(ctx context.Context, deviceID string) (<-chan *model.TelemetryPoint, error) {
+	// Subscribe to telemetry updates for this device
+	ch := r.Broker.Subscribe(deviceID)
+
+	// Cleanup when context is done (client disconnects)
+	go func() {
+		<-ctx.Done()
+		r.Broker.Unsubscribe(deviceID, ch)
+	}()
+
+	return ch, nil
+}
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 

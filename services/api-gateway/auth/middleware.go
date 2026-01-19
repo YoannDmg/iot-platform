@@ -57,6 +57,11 @@ func GetUserFromContext(ctx context.Context) (*Claims, bool) {
 	return user, ok
 }
 
+// WithUser adds user claims to context (used for WebSocket auth)
+func WithUser(ctx context.Context, claims *Claims) context.Context {
+	return context.WithValue(ctx, UserContextKey, claims)
+}
+
 // RequireAuth is a helper to check if user is authenticated in resolvers
 func RequireAuth(ctx context.Context) (*Claims, error) {
 	user, ok := GetUserFromContext(ctx)
